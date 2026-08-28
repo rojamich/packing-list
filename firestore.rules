@@ -1,23 +1,18 @@
 rules_version = '2';
 
-// This is a two-person app. The previous rule allowed ANY signed-in Google
-// account — anyone on the internet could sign in and read or edit the whole
-// inventory. Access is now limited to the accounts listed below.
+// This is a two-person app. Access is limited to the accounts listed below —
+// anyone can *sign in* with Google (that's Firebase Auth, and it creates a UID
+// for them), but only these addresses can read or write any data. An account
+// that signs in but isn't listed sees the "no access" screen.
 //
-// ⚠️ Add Jen's Google account to ALLOWED before deploying, or she'll be locked
-// out. Deploy with:  firebase deploy --only firestore:rules
+// Deploy with:  npm run deploy        (hosting + rules)
+//               npm run deploy:rules  (rules only)
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
     // ┌──────────────────────────────────────────────────────────────┐
-    // │ WHO CAN USE THE APP — add an address here, then redeploy:    │
-    // │   npm run deploy:rules                                       │
-    // │                                                              │
-    // │ Anyone can *sign in* with Google (that's Firebase Auth, and  │
-    // │ it creates a UID for them). Only the addresses in this list  │
-    // │ can read or write any data. An account that signs in but     │
-    // │ isn't listed sees the "no access" screen.                    │
+    // │ WHO CAN USE THE APP — add an address here, then redeploy.    │
     // └──────────────────────────────────────────────────────────────┘
     function allowed() {
       return request.auth != null &&
@@ -28,16 +23,96 @@ service cloud.firestore {
              ];
     }
 
+    // ── Validation ────────────────────────────────────────────────
+    //
+    // The allowlist decides *who* writes; these decide *what* they can write.
+    // Without them a bug in the import planner — or a compromised session —
+    // could put anything of any size into any document.
+    //
+    // Deliberately shaped as "absent, or null, or the right type" rather than
+    // "required". Documents written before a field existed must stay editable,
+    // so a missing `notes` or `waitPrice` can never make an item unwritable.
+    // Only `name` is genuinely required, because every view renders it.
+
+    function str(d, k, max) {
+      return !(k in d) || d[k] == null || (d[k] is string && d[k].size() <= max);
+    }
+
+    function num(d, k) {
+      return !(k in d) || d[k] == null || d[k] is number;
+    }
+
+    function boolean(d, k) {
+      return !(k in d) || d[k] == null || d[k] is bool;
+    }
+
+    function list(d, k, max) {
+      return !(k in d) || d[k] == null || (d[k] is list && d[k].size() <= max);
+    }
+
+    function validItem(d) {
+      return d.name is string && d.name.size() > 0 && d.name.size() <= 200
+          && d.keys().size() <= 50
+          && str(d, 'category', 120)
+          && str(d, 'person', 20)
+          && str(d, 'status', 20)
+          && str(d, 'inBag', 120)
+          && str(d, 'condition', 20)
+          && str(d, 'packStatus', 20)
+          && str(d, 'purchaseDate', 40)
+          && str(d, 'notes', 4000)
+          && num(d, 'qty')
+          && num(d, 'packedQty')
+          && num(d, 'estLifeMonths')
+          && num(d, 'targetPrice')
+          && num(d, 'waitPrice')
+          && num(d, 'sortOrder')
+          && num(d, 'cost')
+          && boolean(d, 'worn')
+          && boolean(d, 'packed')
+          && list(d, 'purchases', 500);
+    }
+
+    function validBag(d) {
+      return d.name is string && d.name.size() > 0 && d.name.size() <= 120
+          && d.keys().size() <= 20
+          && str(d, 'owner', 20)
+          && str(d, 'emoji', 16)
+          && num(d, 'order');
+    }
+
+    // settings/app holds shared exchange rates and a currency preference, and
+    // both phones write to it. Bound it so a bad rates response can't balloon
+    // the document.
+    function validSettings(d) {
+      return d.keys().size() <= 20
+          && str(d, 'activeCurrency', 10)
+          && str(d, 'ratesSource', 20)
+          && num(d, 'ratesUpdatedAt')
+          && (!('rates' in d) || d.rates == null ||
+              (d.rates is map && d.rates.keys().size() <= 200));
+    }
+
+    // ── Collections ───────────────────────────────────────────────
+    // Delete is split out on purpose: `request.resource` is null on a delete,
+    // so validating it there would reject every deletion.
+
     match /items/{itemId} {
-      allow read, write: if allowed();
+      allow read:          if allowed();
+      allow create, update: if allowed() && validItem(request.resource.data);
+      allow delete:        if allowed();
     }
 
     match /bags/{bagId} {
-      allow read, write: if allowed();
+      allow read:          if allowed();
+      allow create, update: if allowed() && validBag(request.resource.data);
+      allow delete:        if allowed();
     }
 
     match /settings/{docId} {
-      allow read, write: if allowed();
+      allow read:          if allowed();
+      allow create, update: if allowed() && validSettings(request.resource.data);
+      allow delete:        if allowed();
     }
 
     // Anything else is closed.
