@@ -10,7 +10,8 @@
     "icons": "node scripts/generate-icons.mjs",
     "deploy": "npm run build && firebase deploy --only hosting,firestore:rules",
     "deploy:hosting": "npm run build && firebase deploy --only hosting",
-    "deploy:rules": "firebase deploy --only firestore:rules"
+    "deploy:rules": "firebase deploy --only firestore:rules",
+    "test": "node --test test/"
   },
   "dependencies": {
     "firebase": "^10.13.0",
