@@ -6,6 +6,9 @@ import { useData } from '../context/DataContext';
 
 const EMOJIS = ['🎒', '👝', '📷', '🧳', '💼', '🎽'];
 
+/** The drag gesture already uses this; a save deserves the same acknowledgement. */
+const confirmHaptic = () => navigator.vibrate?.(12);
+
 export default function BagModal({ bag, itemCount = 0, onClose }) {
   const isNew = !bag?.id;
   const { bags } = useData();
@@ -38,6 +41,7 @@ export default function BagModal({ bag, itemCount = 0, onClose }) {
       const data = { ...form, name: form.name.trim() };
       if (isNew) await addBag(data);
       else       await updateBag(bag.id, bag.name, data);
+      confirmHaptic();
       onClose();
     } catch (e) {
       setError(e?.message || 'Could not save. Check your connection and try again.');
@@ -51,6 +55,7 @@ export default function BagModal({ bag, itemCount = 0, onClose }) {
     setError(null);
     try {
       await deleteBag(bag.id, bag.name, reassignTo || null);
+      confirmHaptic();
       onClose();
     } catch (e) {
       setError(e?.message || 'Could not delete that bag.');

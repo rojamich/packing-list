@@ -24,6 +24,9 @@ const DEFAULT_CATEGORIES = [
   'Health & Medical',
 ];
 
+/** The drag gesture already uses this; a save deserves the same acknowledgement. */
+const confirmHaptic = () => navigator.vibrate?.(12);
+
 export default function ItemModal({ item, onClose }) {
   const isNew = !item?.id;
   const { items, bags } = useData();
@@ -123,6 +126,7 @@ export default function ItemModal({ item, onClose }) {
       } else {
         await updateItem(item.id, buildData());
       }
+      confirmHaptic();
       onClose();
     } catch (e) {
       setError(e?.message || 'Could not save. Check your connection and try again.');
@@ -137,6 +141,7 @@ export default function ItemModal({ item, onClose }) {
     setError(null);
     try {
       await deleteItem(item.id);
+      confirmHaptic();
       onClose();
     } catch (e) {
       setError(e?.message || 'Could not delete.');
