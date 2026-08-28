@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Download, Upload, AlertTriangle, Check, FileJson, Table } from 'lucide-react';
 import { useData } from '../context/DataContext';
@@ -29,9 +29,10 @@ export default function Data() {
   const [result, setResult]   = useState(null);
   const [confirmText, setConfirmText] = useState('');
 
-  const plan = parsed
-    ? buildPlan({ incoming: parsed, existingItems: items, existingBags: bags, mode })
-    : null;
+  const plan = useMemo(
+    () => (parsed ? buildPlan({ incoming: parsed, existingItems: items, existingBags: bags, mode }) : null),
+    [parsed, items, bags, mode],
+  );
 
   const needsTypedConfirm = mode === 'replace' && plan?.itemDeletes.length > 0;
   const confirmed = !needsTypedConfirm || confirmText.trim().toUpperCase() === 'DELETE';

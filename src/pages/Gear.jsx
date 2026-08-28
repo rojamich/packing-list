@@ -22,8 +22,6 @@ const COND_DOT = {
 
 export default function Gear() {
   const { items, bags, loading } = useData();
-  const itemsLoading = loading;
-  const bagsLoading  = loading;
 
   const [view,         setView]         = useState('items'); // 'items' | 'bags'
   const [search,       setSearch]       = useState('');
@@ -126,14 +124,14 @@ export default function Gear() {
         )}
       </div>
 
-      {(itemsLoading || bagsLoading) && (
+      {loading && (
         <div className="flex justify-center py-16">
           <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
         </div>
       )}
 
       {/* ── Items view ── */}
-      {view === 'items' && !itemsLoading && (
+      {view === 'items' && !loading && (
         <div className="px-4 space-y-2">
           {grouped.map(([category, catItems]) => (
             <div key={category} className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden shadow-sm">
@@ -188,7 +186,7 @@ export default function Gear() {
       )}
 
       {/* ── Bags view ── */}
-      {view === 'bags' && !bagsLoading && (
+      {view === 'bags' && !loading && (
         <div className="px-4 space-y-2">
           {bags.map((bag) => {
             const count   = bagItemCounts[bag.name] || 0;

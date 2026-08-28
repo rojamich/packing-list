@@ -4,37 +4,77 @@
   },
   "hosting": {
     "public": "dist",
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
-    "rewrites": [{ "source": "**", "destination": "/index.html" }],
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ],
     "headers": [
       {
         "//": "Default: never let a phone hold on to the HTML shell. Broad rule first so every route is covered, including rewritten paths like /pack.",
         "source": "**",
         "headers": [
-          { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
-
-          { "//": "script-src needs apis.google.com: the Auth SDK loads gapi for its sign-in iframe. frame-src needs the authDomain for that same iframe. style-src needs unsafe-inline for React's style={{...}} progress bars. Adding App Check later also needs www.google.com and www.gstatic.com in script-src/frame-src.",
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          },
+          {
+            "//": "script-src needs apis.google.com: the Auth SDK loads gapi for its sign-in iframe. frame-src needs the authDomain for that same iframe. style-src needs unsafe-inline for React's style={{...}} progress bars. Adding App Check later also needs www.google.com and www.gstatic.com in script-src/frame-src.",
             "key": "Content-Security-Policy",
-            "value": "default-src 'self'; script-src 'self' https://apis.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://*.googleapis.com wss://*.googleapis.com https://open.er-api.com; frame-src https://nomad-pack-list.firebaseapp.com https://apis.google.com; worker-src 'self'; manifest-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'; frame-ancestors 'none'" },
-
-          { "key": "X-Content-Type-Options", "value": "nosniff" },
-          { "key": "X-Frame-Options", "value": "DENY" },
-          { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-          { "key": "Permissions-Policy", "value": "geolocation=(), camera=(), microphone=(), payment=(), usb=()" }
+            "value": "default-src 'self'; script-src 'self' https://apis.google.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://*.googleapis.com wss://*.googleapis.com https://open.er-api.com; frame-src https://nomad-pack-list.firebaseapp.com https://apis.google.com; worker-src 'self'; manifest-src 'self'; base-uri 'none'; object-src 'none'; form-action 'self'; frame-ancestors 'none'"
+          },
+          {
+            "key": "X-Content-Type-Options",
+            "value": "nosniff"
+          },
+          {
+            "key": "X-Frame-Options",
+            "value": "DENY"
+          },
+          {
+            "key": "Referrer-Policy",
+            "value": "strict-origin-when-cross-origin"
+          },
+          {
+            "key": "Permissions-Policy",
+            "value": "geolocation=(), camera=(), microphone=(), payment=(), usb=()"
+          }
         ]
       },
       {
         "//": "Build assets carry a content hash, so they can be cached hard. A new build simply requests a new filename.",
         "source": "/assets/**",
         "headers": [
-          { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=31536000, immutable"
+          }
         ]
       },
       {
-        "//": "These two decide whether an update is even noticed — they must always hit the server.",
+        "//": "These two decide whether an update is even noticed \u2014 they must always hit the server.",
         "source": "/@(sw.js|version.json)",
         "headers": [
-          { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      },
+      {
+        "//": "Icons are content-stable and were being re-fetched on every load by the broad no-store rule above.",
+        "source": "/icons/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=604800"
+          }
         ]
       }
     ]

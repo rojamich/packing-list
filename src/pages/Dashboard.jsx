@@ -8,12 +8,12 @@ import { useUpdate } from '../context/UpdateContext';
 import { APP_VERSION, BUILD_ID, formatBuildDate } from '../lib/version';
 import { seedDatabase } from '../data/store';
 import { packTotals } from '../lib/packing';
-import { replaceByDate, daysUntil, lastPurchase } from '../lib/dates';
+import { replaceByDate, daysUntil } from '../lib/dates';
 import { CURRENCIES, currencyMeta, formatUSD, formatLocal, fromUSD, BASE_CURRENCY } from '../lib/money';
 
 export default function Dashboard() {
   const {
-    items, loading, rates, activeCurrency, setActiveCurrency,
+    items, bags, loading, rates, activeCurrency, setActiveCurrency,
     refreshRates, ratesAreLive,
   } = useData();
 
@@ -47,11 +47,24 @@ export default function Dashboard() {
       }
     });
 
-    const byBag = {};
+    // Use the bags' own order and icons, the way Gear and Pack do. Sorting
+    // alphabetically and dropping the emoji made the same data look like a
+    // different list three lines further down the same scroll.
+    const counts = {};
     items.forEach((i) => {
       const bag = i.inBag || 'Unassigned';
-      byBag[bag] = (byBag[bag] || 0) + 1;
+      counts[bag] = (counts[bag] || 0) + 1;
     });
+    const known = bags.filter((b) => counts[b.name])
+      .map((b) => ({ name: b.name, emoji: b.emoji || '🎒', count: counts[b.name] }));
+    const orphaned = Object.keys(counts)
+      .filter((n) => n !== 'Unassigned' && !bags.some((b) => b.name === n))
+      .sort((a, b) => a.localeCompare(b))
+      .map((n) => ({ name: n, emoji: '🎒', count: counts[n] }));
+    const unassigned = counts.Unassigned
+      ? [{ name: 'Unassigned', emoji: '📦', count: counts.Unassigned }]
+      : [];
+    const byBag = [...known, ...orphaned, ...unassigned];
 
     return {
       total: items.length,
@@ -67,7 +80,7 @@ export default function Dashboard() {
       jen: items.filter((i) => i.person === 'Jen').length,
       shared: items.filter((i) => i.person === 'Both').length,
     };
-  }, [items]);
+  }, [items, bags]);
 
   async function handleSeed() {
     setSeeding(true);
@@ -233,9 +246,9 @@ export default function Dashboard() {
           <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm">
             <h2 className="font-semibold text-gray-900 dark:text-white mb-3">By Bag</h2>
             <div className="space-y-2.5">
-              {Object.entries(stats.byBag)
-                .sort(([a], [b]) => a.localeCompare(b))
-                .map(([bag, count]) => <Row key={bag} label={bag} value={count} />)}
+              {stats.byBag.map((b) => (
+                <Row key={b.name} label={b.name} value={b.count} icon={b.emoji} />
+              ))}
             </div>
           </div>
 
