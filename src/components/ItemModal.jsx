@@ -6,6 +6,16 @@ import { itemQty } from '../lib/packing';
 import { DEFAULT_LIFE_MONTHS } from '../lib/dates';
 import ItemPricing from './ItemPricing';
 
+// The fields this form actually writes. Used to spot a concurrent edit without
+// tripping over `updatedAt`, which our own purchase writes bump too.
+const EDITABLE = [
+  'name', 'category', 'person', 'qty', 'status', 'inBag',
+  'condition', 'estLifeMonths', 'targetPrice', 'waitPrice', 'notes',
+];
+
+const pickEditable = (it) =>
+  Object.fromEntries(EDITABLE.map((f) => [f, it?.[f] ?? null]));
+
 const DEFAULT_CATEGORIES = [
   'Clothing – Mike',
   'Clothing – Jen',
@@ -17,6 +27,15 @@ const DEFAULT_CATEGORIES = [
 export default function ItemModal({ item, onClose }) {
   const isNew = !item?.id;
   const { items, bags } = useData();
+
+  // The pages hold the tapped row in state, so `item` is a snapshot frozen at
+  // tap time — it never sees later Firestore updates. Anything that reads or
+  // appends to server data has to go through `live` instead, or a second write
+  // is computed from a stale list and silently overwrites the first.
+  const live = useMemo(
+    () => (isNew ? null : items.find((i) => i.id === item.id) ?? item),
+    [isNew, items, item],
+  );
 
   // Categories come from what's actually in the list, so a new one sticks
   // without needing a code change.
@@ -45,11 +64,24 @@ export default function ItemModal({ item, onClose }) {
   // and written once it's created.
   const [pendingPurchases, setPendingPurchases] = useState([]);
 
+  // What the form was seeded with. If `live` has drifted from this, the other
+  // phone edited the same item while this sheet was open — saving would silently
+  // overwrite their change.
+  const [baseline] = useState(() => (item?.id ? pickEditable(item) : null));
+
+  const remoteEdits = useMemo(() => {
+    if (isNew || !baseline || !live) return [];
+    const now = pickEditable(live);
+    return EDITABLE.filter(
+      (f) => String(baseline[f] ?? '') !== String(now[f] ?? ''),
+    );
+  }, [isNew, baseline, live]);
+
   const [saving, setSaving]               = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError]                 = useState(null);
 
-  const purchases = isNew ? pendingPurchases : (item.purchases || []);
+  const purchases = isNew ? pendingPurchases : (live?.purchases || []);
 
   const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
   const setDirect = (field, value) => setForm((f) => ({ ...f, [field]: value }));
@@ -110,7 +142,7 @@ export default function ItemModal({ item, onClose }) {
       return;
     }
     try {
-      await logPurchase(item, entry);
+      await logPurchase(live, entry);
     } catch (e) {
       setError(e?.message || 'Could not log that purchase.');
     }
@@ -122,7 +154,7 @@ export default function ItemModal({ item, onClose }) {
       return;
     }
     try {
-      await removePurchase(item, purchaseId);
+      await removePurchase(live, purchaseId);
     } catch (e) {
       setError(e?.message || 'Could not remove that purchase.');
     }
@@ -146,6 +178,17 @@ export default function ItemModal({ item, onClose }) {
             <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">
               {error}
             </p>
+          )}
+
+          {remoteEdits.length > 0 && (
+            <div className="text-sm text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
+              <p className="font-medium">Someone else changed this item</p>
+              <p className="text-xs mt-0.5 text-amber-700 dark:text-amber-300">
+                {remoteEdits.join(', ')} {remoteEdits.length === 1 ? 'was' : 'were'} updated
+                on the other device. Saving will replace {remoteEdits.length === 1 ? 'it' : 'them'} with
+                what's on this screen.
+              </p>
+            </div>
           )}
 
           <Field label="Item Name">
