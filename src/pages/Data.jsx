@@ -12,7 +12,7 @@ import {
 const MODES = [
   { key: 'update',  label: 'Update only', hint: 'Change items already in the app. Nothing added or deleted.' },
   { key: 'merge',   label: 'Merge',       hint: 'Update existing items and add any new ones. Nothing deleted.' },
-  { key: 'replace', label: 'Replace all', hint: 'Merge, then delete every item missing from the file.' },
+  { key: 'replace', label: 'Replace all', hint: 'Merge, then delete every item missing from the file. Bags are never deleted.' },
 ];
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;

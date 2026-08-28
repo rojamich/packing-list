@@ -187,12 +187,15 @@ export default function Pack() {
           </p>
         )}
 
-        {grouped.map(([bag, bagItems]) => (
+        {grouped.map(([bag, bagItems], groupIndex) => (
           <BagGroup
             key={bag}
             bag={bag}
             emoji={bagEmoji(bag)}
             items={bagItems}
+            // Keeps each bag's sortOrder values in their own band. Reordering is
+            // only enabled unfiltered, so this index is stable.
+            orderBase={(groupIndex + 1) * 100000}
             reorderable={!filtering}
             onEdit={setEditing}
             onReorder={handleReorder}
@@ -227,9 +230,13 @@ export default function Pack() {
 // ── One bag's list ────────────────────────────────────────────────
 // Each group owns its own reorder gesture; items only ever move within a bag.
 
-function BagGroup({ bag, emoji, items, reorderable, onEdit, onReorder, onSetPack }) {
+function BagGroup({ bag, emoji, items, orderBase = 0, reorderable, onEdit, onReorder, onSetPack }) {
   const ids = useMemo(() => items.map((i) => i.id), [items]);
-  const { dragId, order, getRowProps } = useLongPressReorder(ids, onReorder, reorderable);
+  const commit = useMemo(
+    () => (nextIds) => onReorder(nextIds, orderBase),
+    [onReorder, orderBase],
+  );
+  const { dragId, order, getRowProps } = useLongPressReorder(ids, commit, reorderable);
 
   // While dragging, render the live order instead of what Firestore last sent.
   const rows = useMemo(() => {

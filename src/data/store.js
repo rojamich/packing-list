@@ -54,11 +54,17 @@ export async function resetAllPacked(items) {
   });
 }
 
-/** Persist a new within-bag ordering. `orderedIds` is the full group, in order. */
-export async function reorderItems(orderedIds) {
+/**
+ * Persist a new within-bag ordering. `orderedIds` is the full group, in order.
+ *
+ * `base` separates one bag's block of sortOrder values from the next. Without
+ * it every bag started at ORDER_STEP, so values collided across bags and the
+ * collection-wide sort in DataContext meant nothing.
+ */
+export async function reorderItems(orderedIds, base = 0) {
   if (!orderedIds?.length) return;
   await commitInChunks(orderedIds, (batch, id, i) => {
-    batch.update(doc(db, 'items', id), { sortOrder: (i + 1) * ORDER_STEP });
+    batch.update(doc(db, 'items', id), { sortOrder: base + (i + 1) * ORDER_STEP });
   });
 }
 

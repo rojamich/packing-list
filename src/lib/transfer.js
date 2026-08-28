@@ -342,16 +342,22 @@ function normalizeCsvItem(row, present = []) {
   // A filled-in price becomes a purchase, if it isn't already recorded.
   const amountUSD = num(row.lastPaidUSD, null);
   if (amountUSD !== null && amountUSD >= 0) {
-    const currency = String(row.lastPaidCurrency || 'USD').trim().toUpperCase() || 'USD';
-    const local = num(row.lastPaidLocal, amountUSD);
+    const declared = String(row.lastPaidCurrency || 'USD').trim().toUpperCase() || 'USD';
+    const local = num(row.lastPaidLocal, null);
+    // Without a local amount there is no rate to derive. Defaulting it to the
+    // USD figure recorded a foreign purchase at a rate of 1, which is exactly
+    // the kind of quiet lie the stored-rate design exists to prevent — so log
+    // it as a plain USD purchase and tell the user the currency was dropped.
+    const hasLocal = declared !== 'USD' && local !== null && local > 0 && amountUSD > 0;
     item._csvPurchase = {
       date: String(row.lastPaidDate || '').trim() || toDateInput(new Date()),
       amountUSD,
-      amountLocal: local,
-      currency,
-      rate: amountUSD > 0 ? (local ?? amountUSD) / amountUSD : 1,
+      amountLocal: hasLocal ? local : amountUSD,
+      currency: hasLocal ? declared : 'USD',
+      rate: hasLocal ? local / amountUSD : 1,
       where: String(row.lastPaidWhere || '').trim(),
     };
+    if (!hasLocal && declared !== 'USD') item._csvRateDropped = declared;
   }
 
   return item;
@@ -493,6 +499,11 @@ export function buildPlan({ incoming, existingItems = [], existingBags = [], mod
 
   if (mode === 'replace') {
     existingItems.forEach((i) => { if (!seenItemIds.has(i.id)) itemDeletes.push(i); });
+  }
+
+  const rateDropped = (incoming.items || []).filter((i) => i._csvRateDropped).length;
+  if (rateDropped) {
+    warnings.push(`${rateDropped} row(s) named a non-USD currency without a lastPaidLocal amount — there is no rate to record, so they are logged in USD.`);
   }
 
   if (missingBags.size && mode !== 'update') {
