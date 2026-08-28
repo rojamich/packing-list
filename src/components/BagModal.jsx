@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
-import { X, AlertTriangle } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { AlertTriangle } from 'lucide-react';
+import Sheet from './Sheet';
 import { addBag, updateBag, deleteBag } from '../data/store';
 import { useData } from '../context/DataContext';
 
@@ -57,19 +58,14 @@ export default function BagModal({ bag, itemCount = 0, onClose }) {
     }
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative w-full bg-white dark:bg-gray-900 rounded-t-2xl max-h-[80vh] overflow-y-auto z-10 shadow-2xl">
-        <div className="sticky top-0 bg-white dark:bg-gray-900 flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800">
-          <h2 className="font-semibold text-gray-900 dark:text-white text-lg">
-            {isNew ? 'Add Bag' : 'Edit Bag'}
-          </h2>
-          <button onClick={onClose} className="p-2 -mr-2 text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-            <X size={20} />
-          </button>
-        </div>
+  const dirty = useMemo(() => {
+    const norm = (v) => (v === null || v === undefined ? '' : String(v));
+    if (isNew) return !!form.name.trim();
+    return ['name', 'owner', 'emoji', 'order'].some((f) => norm(form[f]) !== norm(bag?.[f]));
+  }, [isNew, form, bag]);
 
+  return (
+    <Sheet title={isNew ? 'Add Bag' : 'Edit Bag'} onClose={onClose} dirty={dirty} maxHeight="80vh">
         <div className="p-4 space-y-4 pb-8">
           {error && (
             <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">
@@ -178,8 +174,7 @@ export default function BagModal({ bag, itemCount = 0, onClose }) {
             )}
           </div>
         </div>
-      </div>
-    </div>
+    </Sheet>
   );
 }
 

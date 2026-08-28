@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { X } from 'lucide-react';
+import Sheet from './Sheet';
 import { useData } from '../context/DataContext';
 import { addItem, updateItem, deleteItem, logPurchase, removePurchase, setPurchases } from '../data/store';
 import { itemQty } from '../lib/packing';
@@ -168,19 +168,16 @@ export default function ItemModal({ item, onClose }) {
     }
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative w-full bg-white dark:bg-gray-900 rounded-t-2xl max-h-[92vh] overflow-y-auto z-10 shadow-2xl">
-        <div className="sticky top-0 bg-white dark:bg-gray-900 flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800 z-10">
-          <h2 className="font-semibold text-gray-900 dark:text-white text-lg">
-            {isNew ? 'Add Item' : 'Edit Item'}
-          </h2>
-          <button onClick={onClose} aria-label="Close" className="p-2 -mr-2 text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-            <X size={20} />
-          </button>
-        </div>
+  // Guards the backdrop: a stray tap on the dark area used to discard
+  // everything typed into the sheet, with no warning.
+  const dirty = useMemo(() => {
+    const norm = (v) => (v === null || v === undefined ? '' : String(v));
+    if (isNew) return !!form.name.trim() || pendingPurchases.length > 0;
+    return EDITABLE.some((f) => norm(form[f]) !== norm(live?.[f]));
+  }, [isNew, form, pendingPurchases, live]);
 
+  return (
+    <Sheet title={isNew ? 'Add Item' : 'Edit Item'} onClose={onClose} dirty={dirty}>
         <div className="p-4 space-y-4 pb-8">
           {error && (
             <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">
@@ -324,8 +321,7 @@ export default function ItemModal({ item, onClose }) {
             )}
           </div>
         </div>
-      </div>
-    </div>
+    </Sheet>
   );
 }
 
