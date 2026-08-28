@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Search, RotateCcw, Check, Shirt, Pencil, GripVertical, Minus, Plus } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { setPackState, resetAllPacked, reorderItems } from '../data/store';
@@ -13,6 +13,7 @@ export default function Pack() {
   const [personFilter, setPersonFilter] = useState('All');
   const [bagFilter,    setBagFilter]    = useState('All');
   const [resetting,    setResetting]    = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
   const [editing,      setEditing]      = useState(null);
   const [writeError,   setWriteError]   = useState(null);
 
@@ -68,11 +69,32 @@ export default function Pack() {
   const handleReorder = useMemo(() => guard(reorderItems), [guard]);
   const handleSetPack = useMemo(() => guard(setPackState), [guard]);
 
+  // Only the rows actually on screen. This button sits directly beneath the
+  // person and bag filters, so resetting the whole collection from here quietly
+  // wiped the other person's packing too.
+  const resetTargets = useMemo(
+    () => filtered.filter((i) => getPackState(i).doneQty > 0),
+    [filtered],
+  );
+
+  // Matches the tap-again pattern used for item and bag deletes, instead of a
+  // blocking browser dialog that can't say how many rows it is about to touch.
+  useEffect(() => {
+    if (!confirmReset) return undefined;
+    const t = setTimeout(() => setConfirmReset(false), 4000);
+    return () => clearTimeout(t);
+  }, [confirmReset]);
+
+  // Changing a filter changes what the button would do, so disarm it.
+  useEffect(() => { setConfirmReset(false); }, [search, personFilter, bagFilter]);
+
   async function handleReset() {
-    if (!confirm('Reset all items to unpacked?')) return;
+    if (resetTargets.length === 0) return;
+    if (!confirmReset) { setConfirmReset(true); return; }
+    setConfirmReset(false);
     setResetting(true);
     setWriteError(null);
-    try { await resetAllPacked(items); }
+    try { await resetAllPacked(resetTargets); }
     catch (e) { setWriteError(e?.message || 'Could not reset.'); }
     finally { setResetting(false); }
   }
@@ -88,10 +110,19 @@ export default function Pack() {
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">Pack Mode</h1>
           <button
             onClick={handleReset}
-            disabled={resetting || stats.done === 0}
-            className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 disabled:opacity-40 active:text-gray-700"
+            disabled={resetting || resetTargets.length === 0}
+            className={`flex items-center gap-1.5 text-sm disabled:opacity-40 ${
+              confirmReset
+                ? 'text-red-600 dark:text-red-400 font-semibold'
+                : 'text-gray-500 dark:text-gray-500 dark:text-gray-400 active:text-gray-700'
+            }`}
           >
-            <RotateCcw size={14} /> Reset all
+            <RotateCcw size={14} />
+            {confirmReset
+              ? `Tap again to reset ${resetTargets.length}`
+              : filtering
+                ? `Reset ${resetTargets.length} shown`
+                : `Reset all ${resetTargets.length}`}
           </button>
         </div>
 
