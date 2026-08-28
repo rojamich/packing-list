@@ -75,7 +75,7 @@ export default function Replace() {
     <div className="pb-6">
       <div className="sticky top-0 bg-gray-50 dark:bg-gray-950 z-10 px-4 pt-4 pb-2">
         <h1 className="text-xl font-bold text-gray-900 dark:text-white">Replace Tracker</h1>
-        <p className="text-sm text-gray-400 mt-0.5">Tap any item to log a purchase or set its target price</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Tap any item to log a purchase or set its target price</p>
       </div>
 
       {loading && (
@@ -99,17 +99,17 @@ export default function Replace() {
         {actionable.length > 0 && budget.total > 0 && (
           <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm">
             <div className="flex items-baseline justify-between">
-              <span className="text-sm text-gray-500 dark:text-gray-400">Cost to replace all flagged</span>
+              <span className="text-sm text-gray-500 dark:text-gray-500 dark:text-gray-400">Cost to replace all flagged</span>
               <span className="text-2xl font-bold text-gray-900 dark:text-white">
                 {formatUSD(budget.total, { round: true })}
               </span>
             </div>
             {activeCurrency !== BASE_CURRENCY && (
-              <p className="text-xs text-gray-400 mt-1 text-right">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 text-right">
                 ≈ {formatLocal(fromUSD(budget.total, activeCurrency, rates), activeCurrency, { round: true })} in {currencyMeta(activeCurrency).name}
               </p>
             )}
-            <p className="text-xs text-gray-400 mt-2 leading-relaxed">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 leading-relaxed">
               {formatUSD(budget.known, { round: true })} from target prices
               {budget.guessed > 0 && ` · ${formatUSD(budget.guessed, { round: true })} estimated from what you last paid`}
               {budget.unknown > 0 && ` · ${budget.unknown} item${budget.unknown === 1 ? '' : 's'} with no price yet`}
@@ -142,7 +142,7 @@ export default function Replace() {
                     <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${cfg.dot}`} />
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium text-gray-900 dark:text-white truncate">{item.name}</div>
-                      <div className="text-xs text-gray-400 mt-0.5 truncate">
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
                         {item.inBag || 'Unassigned'}
                         {rb && ` · Replace by ${rb}`}
                         {!rb && item.status !== 'replace' && ' · No purchase logged'}
@@ -152,18 +152,18 @@ export default function Replace() {
                           <span className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 font-medium">
                             <Tag size={11} /> Target {formatUSD(target, { round: true })}
                             {activeCurrency !== BASE_CURRENCY && (
-                              <span className="text-gray-400 font-normal">
+                              <span className="text-gray-500 dark:text-gray-400 font-normal">
                                 ({formatLocal(fromUSD(target, activeCurrency, rates), activeCurrency, { round: true })})
                               </span>
                             )}
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-gray-400">
+                          <span className="inline-flex items-center gap-1 text-gray-500 dark:text-gray-400">
                             <AlertCircle size={11} /> No target price
                           </span>
                         )}
                         {paid && (
-                          <span className="text-gray-400">Paid {formatUSD(paid.amountUSD, { round: true })}</span>
+                          <span className="text-gray-500 dark:text-gray-400">Paid {formatUSD(paid.amountUSD, { round: true })}</span>
                         )}
                       </div>
                     </div>
@@ -226,7 +226,7 @@ function Collapsible({ title, open, onToggle, items, onSelect, subline }) {
         className="w-full flex items-center justify-between px-4 py-3 border-b border-gray-50 dark:border-gray-800"
       >
         <span className="font-semibold text-gray-900 dark:text-white text-sm">{title}</span>
-        <span className="text-xs text-gray-400">{open ? 'Hide' : 'Show'}</span>
+        <span className="text-xs text-gray-500 dark:text-gray-400">{open ? 'Hide' : 'Show'}</span>
       </button>
       {open && (
         <div className="divide-y divide-gray-50 dark:divide-gray-800">
@@ -239,12 +239,12 @@ function Collapsible({ title, open, onToggle, items, onSelect, subline }) {
               <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-gray-300 dark:bg-gray-600" />
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium text-gray-900 dark:text-white truncate">{item.name}</div>
-                <div className="text-xs text-gray-400 mt-0.5 truncate">{subline(item)}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">{subline(item)}</div>
               </div>
             </button>
           ))}
           {items.length > 40 && (
-            <p className="px-4 py-2.5 text-xs text-gray-400">
+            <p className="px-4 py-2.5 text-xs text-gray-500 dark:text-gray-400">
               +{items.length - 40} more — use the Gear tab to work through the rest.
             </p>
           )}

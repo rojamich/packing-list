@@ -98,11 +98,11 @@ export default function Dashboard() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Mike &amp; Jen</h1>
-          <p className="text-sm text-gray-400">Nomad Kit &amp; Inventory</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Nomad Kit &amp; Inventory</p>
         </div>
         <button
           onClick={() => signOut(auth)}
-          className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 mt-1"
+          className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 mt-1"
         >
           Sign out
         </button>
@@ -138,12 +138,12 @@ export default function Dashboard() {
           <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm">
             <div className="flex items-center justify-between mb-2">
               <span className="flex items-center gap-1.5 text-sm font-semibold text-gray-900 dark:text-white">
-                <Globe size={14} className="text-gray-400" /> Shopping currency
+                <Globe size={14} className="text-gray-500 dark:text-gray-400" /> Shopping currency
               </span>
               <button
                 onClick={handleRefreshRates}
                 disabled={refreshing}
-                className="flex items-center gap-1 text-xs text-gray-400 disabled:opacity-40 active:text-gray-600"
+                className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 disabled:opacity-40 active:text-gray-600"
               >
                 <RefreshCw size={12} className={refreshing ? 'animate-spin' : ''} />
                 {ratesAreLive ? 'Update rates' : 'Get live rates'}
@@ -158,7 +158,7 @@ export default function Dashboard() {
                 <option key={c.code} value={c.code}>{c.code} — {c.name}</option>
               ))}
             </select>
-            <p className="text-xs text-gray-400 mt-1.5">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">
               Target prices show in this currency wherever you are.
               {!ratesAreLive && ' Using built-in fallback rates until the first update.'}
             </p>
@@ -172,8 +172,8 @@ export default function Dashboard() {
               value={`${pct}%`}
               color={pct === 100 ? 'text-green-600' : 'text-blue-600'}
             />
-            <StatCard label="Need to Buy" value={stats.toBuy} color={stats.toBuy > 0 ? 'text-amber-500' : 'text-gray-400'} />
-            <StatCard label="Replace Soon" value={stats.toReplace} color={stats.toReplace > 0 ? 'text-red-500' : 'text-gray-400'} />
+            <StatCard label="Need to Buy" value={stats.toBuy} color={stats.toBuy > 0 ? 'text-amber-500' : 'text-gray-500 dark:text-gray-400'} />
+            <StatCard label="Replace Soon" value={stats.toReplace} color={stats.toReplace > 0 ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'} />
           </div>
 
           {/* ── Money ── */}
@@ -210,7 +210,7 @@ export default function Dashboard() {
 
           <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm">
             <div className="flex justify-between text-sm mb-2">
-              <span className="text-gray-500 dark:text-gray-400">Packing progress</span>
+              <span className="text-gray-500 dark:text-gray-500 dark:text-gray-400">Packing progress</span>
               <span className="font-medium text-gray-900 dark:text-white">
                 {stats.packing.done} / {stats.packing.total}
               </span>
@@ -218,7 +218,7 @@ export default function Dashboard() {
             <div className="h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
               <div className="h-full bg-blue-600 rounded-full transition-all" style={{ width: `${pct}%` }} />
             </div>
-            <p className="text-xs text-gray-400 mt-1.5">Counted by individual pieces, not by line.</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">Counted by individual pieces, not by line.</p>
           </div>
 
           <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm">
@@ -261,11 +261,11 @@ export default function Dashboard() {
           <span className="block font-semibold text-gray-900 dark:text-white text-sm">
             Backup &amp; Bulk Edit
           </span>
-          <span className="block text-xs text-gray-400 mt-0.5">
+          <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
             Export a backup · set prices in a spreadsheet · import
           </span>
         </span>
-        <ChevronRight size={18} className="text-gray-300 dark:text-gray-600 flex-shrink-0" />
+        <ChevronRight size={18} className="text-gray-500 dark:text-gray-600 flex-shrink-0" />
       </Link>
 
       <VersionFooter />
@@ -279,10 +279,10 @@ function VersionFooter() {
 
   return (
     <div className="pt-2 pb-1 text-center space-y-1">
-      <p className="text-xs text-gray-400">
+      <p className="text-xs text-gray-500 dark:text-gray-400">
         v{APP_VERSION} · built {formatBuildDate()}
       </p>
-      <p className="text-[10px] text-gray-300 dark:text-gray-600 font-mono">{BUILD_ID}</p>
+      <p className="text-[10px] text-gray-500 dark:text-gray-600 font-mono">{BUILD_ID}</p>
 
       {updateAvailable ? (
         <button
@@ -295,7 +295,7 @@ function VersionFooter() {
         <button
           onClick={check}
           disabled={checking}
-          className="text-xs text-gray-400 underline disabled:opacity-50"
+          className="text-xs text-gray-500 dark:text-gray-400 underline disabled:opacity-50"
         >
           {checking ? 'Checking…' : 'Check for updates'}
         </button>
@@ -308,7 +308,7 @@ function StatCard({ label, value, color }) {
   return (
     <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm">
       <div className={`text-3xl font-bold ${color}`}>{value}</div>
-      <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">{label}</div>
+      <div className="text-sm text-gray-500 dark:text-gray-500 dark:text-gray-400 mt-1">{label}</div>
     </div>
   );
 }
@@ -318,14 +318,14 @@ function MoneyRow({ label, usd, currency, rates, hint }) {
     <div className="flex items-start justify-between gap-3">
       <div className="min-w-0">
         <div className="text-gray-600 dark:text-gray-300 text-sm">{label}</div>
-        {hint && <div className="text-xs text-gray-400 mt-0.5">{hint}</div>}
+        {hint && <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{hint}</div>}
       </div>
       <div className="text-right flex-shrink-0">
         <div className="font-semibold text-gray-900 dark:text-white text-sm">
           {formatUSD(usd, { round: true })}
         </div>
         {currency !== BASE_CURRENCY && (
-          <div className="text-xs text-gray-400">
+          <div className="text-xs text-gray-500 dark:text-gray-400">
             {formatLocal(fromUSD(usd, currency, rates), currency, { round: true })} {currencyMeta(currency).code}
           </div>
         )}

@@ -97,7 +97,7 @@ export default function ItemPricing({
       <div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
+            <label className="flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-500 dark:text-gray-400 mb-1">
               <Tag size={13} /> Target (USD)
             </label>
             <input
@@ -112,7 +112,7 @@ export default function ItemPricing({
             />
           </div>
           <div>
-            <label className="flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
+            <label className="flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-500 dark:text-gray-400 mb-1">
               <Timer size={13} /> Wait for (USD)
             </label>
             <input
@@ -128,7 +128,7 @@ export default function ItemPricing({
           </div>
         </div>
 
-        <p className="text-xs text-gray-400 mt-1 leading-relaxed">
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
           {pctOff != null
             ? `This one realistically goes ${pctOff}% off. Below ${formatUSD(waitUSD, { round: true })} is a buy; between that and ${formatUSD(targetUSD, { round: true })} is fair but worth waiting.`
             : hasTarget
@@ -136,7 +136,7 @@ export default function ItemPricing({
               : 'Set a target once. The check below compares any local price against it.'}
         </p>
         {targetLocal != null && (
-          <p className="text-xs text-gray-400 mt-0.5">
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
             Target ≈ {formatLocal(targetLocal, currency)} at today's rate.
           </p>
         )}
@@ -146,7 +146,7 @@ export default function ItemPricing({
       <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3 space-y-3">
         <div className="flex items-center justify-between">
           <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">Price check</span>
-          <span className="text-xs text-gray-400">
+          <span className="text-xs text-gray-500 dark:text-gray-400">
             {ratesAreLive
               ? `Rates ${ratesUpdatedAt ? formatDay(new Date(ratesUpdatedAt)) : 'live'}`
               : 'Offline rates'}
@@ -182,7 +182,7 @@ export default function ItemPricing({
                 {formatUSD(enteredUSD)}
               </span>
               {currency !== BASE_CURRENCY && (
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-gray-500 dark:text-gray-400">
                   1 USD = {rate.toLocaleString('en-US', { maximumFractionDigits: 2 })} {currency}
                 </span>
               )}
@@ -198,7 +198,7 @@ export default function ItemPricing({
                 </div>
               </div>
             ) : (
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 Set a target price above to get a good-deal verdict.
               </p>
             )}
@@ -255,16 +255,16 @@ export default function ItemPricing({
       {/* ── Purchase history ── */}
       <div>
         <div className="flex items-center justify-between mb-1">
-          <label className="flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400">
+          <label className="flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-500 dark:text-gray-400">
             <Receipt size={13} /> Purchase History
           </label>
           {purchases.length > 1 && (
-            <span className="text-xs text-gray-400">{formatUSD(totalSpent)} total</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400">{formatUSD(totalSpent)} total</span>
           )}
         </div>
 
         {sortedPurchases.length === 0 ? (
-          <p className="text-xs text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-lg px-3 py-2.5">
+          <p className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-lg px-3 py-2.5">
             Nothing logged yet. Enter a price above and tap “I bought it at this price.”
           </p>
         ) : (
@@ -277,17 +277,17 @@ export default function ItemPricing({
                       {formatUSD(p.amountUSD)}
                     </span>
                     {p.currency && p.currency !== BASE_CURRENCY && (
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
                         {formatLocal(p.amountLocal, p.currency)}
                       </span>
                     )}
                     {i === 0 && (
-                      <span className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold">
+                      <span className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400 font-semibold">
                         latest
                       </span>
                     )}
                   </div>
-                  <div className="text-xs text-gray-400 truncate">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
                     {formatDay(p.date) || 'No date'}{p.where ? ` · ${p.where}` : ''}
                   </div>
                 </div>
@@ -297,7 +297,7 @@ export default function ItemPricing({
                     type="button"
                     onClick={() => onRemovePurchase(p.id)}
                     aria-label="Delete this purchase"
-                    className="p-1.5 text-gray-300 hover:text-red-500 dark:text-gray-600 dark:hover:text-red-400"
+                    className="p-1.5 text-gray-500 hover:text-red-500 dark:text-gray-600 dark:hover:text-red-400"
                   >
                     <Trash2 size={14} />
                   </button>
@@ -308,7 +308,7 @@ export default function ItemPricing({
         )}
 
         {lastPaid && hasTarget && (
-          <p className="text-xs text-gray-400 mt-1.5">
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">
             Last paid {formatUSD(lastPaid.amountUSD)} · target {formatUSD(targetUSD)}
           </p>
         )}

@@ -168,7 +168,7 @@ export default function ItemModal({ item, onClose }) {
           <h2 className="font-semibold text-gray-900 dark:text-white text-lg">
             {isNew ? 'Add Item' : 'Edit Item'}
           </h2>
-          <button onClick={onClose} aria-label="Close" className="p-2 -mr-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+          <button onClick={onClose} aria-label="Close" className="p-2 -mr-2 text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
             <X size={20} />
           </button>
         </div>
@@ -324,7 +324,7 @@ export default function ItemModal({ item, onClose }) {
 function Field({ label, children }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">{label}</label>
+      <label className="block text-sm font-medium text-gray-500 dark:text-gray-500 dark:text-gray-400 mb-1">{label}</label>
       {children}
     </div>
   );

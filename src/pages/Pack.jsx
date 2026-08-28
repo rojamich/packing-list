@@ -89,20 +89,20 @@ export default function Pack() {
           <button
             onClick={handleReset}
             disabled={resetting || stats.done === 0}
-            className="flex items-center gap-1.5 text-sm text-gray-400 disabled:opacity-40 active:text-gray-700"
+            className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 disabled:opacity-40 active:text-gray-700"
           >
             <RotateCcw size={14} /> Reset all
           </button>
         </div>
 
         <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400" />
           <input
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search items…"
-            className="w-full pl-9 pr-4 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full pl-9 pr-4 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
@@ -121,9 +121,9 @@ export default function Pack() {
 
         <div className="bg-white dark:bg-gray-900 rounded-2xl p-3 shadow-sm">
           <div className="flex justify-between text-sm mb-2">
-            <span className="text-gray-500 dark:text-gray-400">
+            <span className="text-gray-500 dark:text-gray-500 dark:text-gray-400">
               {stats.packed > 0 && <span className="text-green-600 font-medium">{stats.packed} packed</span>}
-              {stats.packed > 0 && stats.worn > 0 && <span className="text-gray-300 dark:text-gray-600"> · </span>}
+              {stats.packed > 0 && stats.worn > 0 && <span className="text-gray-500 dark:text-gray-600"> · </span>}
               {stats.worn > 0 && <span className="text-indigo-500 font-medium">{stats.worn} worn</span>}
               {stats.done === 0 && <span>Not started</span>}
             </span>
@@ -136,7 +136,7 @@ export default function Pack() {
             <div className="h-full bg-green-500 transition-all"  style={{ width: `${packedPct}%` }} />
             <div className="h-full bg-indigo-500 transition-all" style={{ width: `${wornPct}%` }} />
           </div>
-          <div className="flex gap-4 mt-1.5 text-xs text-gray-400">
+          <div className="flex gap-4 mt-1.5 text-xs text-gray-500 dark:text-gray-400">
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" />Packed in bag</span>
             <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-indigo-500 inline-block" />Wearing on travel day</span>
           </div>
@@ -170,7 +170,7 @@ export default function Pack() {
         ))}
 
         {!loading && filtered.length === 0 && (
-          <div className="text-center py-16 text-gray-400">
+          <div className="text-center py-16 text-gray-500 dark:text-gray-400">
             <p className="text-4xl mb-3">{items.length === 0 ? '📦' : '🔍'}</p>
             <p className="font-medium">{items.length === 0 ? 'No items to pack' : 'No items match your filters'}</p>
             <p className="text-sm mt-1">{items.length === 0 ? 'Add items in the Gear tab first' : 'Try a different filter'}</p>
@@ -179,7 +179,7 @@ export default function Pack() {
       </div>
 
       {!loading && filtered.length > 0 && (
-        <p className="text-center text-xs text-gray-400 mt-4 px-4 leading-relaxed">
+        <p className="text-center text-xs text-gray-500 dark:text-gray-400 mt-4 px-4 leading-relaxed">
           Tap to pack · tap again for worn on travel day · use −/+ to pack part of a set
           <br />
           {filtering
@@ -213,7 +213,7 @@ function BagGroup({ bag, emoji, items, reorderable, onEdit, onReorder, onSetPack
     <div className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden shadow-sm">
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50 dark:border-gray-800">
         <span className="font-semibold text-gray-900 dark:text-white text-sm">{emoji} {bag}</span>
-        <span className="text-xs text-gray-400">{totals.done}/{totals.total}</span>
+        <span className="text-xs text-gray-500 dark:text-gray-400">{totals.done}/{totals.total}</span>
       </div>
 
       <div className="divide-y divide-gray-50 dark:divide-gray-800">
@@ -274,13 +274,13 @@ function PackRow({ item, dragging, lifted, rowProps, onEdit, onSetPack }) {
             ? 'text-gray-900 dark:text-white'
             : state.status === 'partial'
               ? 'text-gray-700 dark:text-gray-200'
-              : 'text-gray-400 dark:text-gray-500 line-through'
+              : 'text-gray-500 dark:text-gray-500 line-through'
         }`}>
           {item.name}
-          {multi && <span className="text-gray-400 font-normal no-underline"> ×{state.qty}</span>}
+          {multi && <span className="text-gray-500 dark:text-gray-400 font-normal no-underline"> ×{state.qty}</span>}
         </div>
         {subline && (
-          <div className={`text-xs mt-0.5 ${state.status === 'partial' ? 'text-amber-600 dark:text-amber-400 font-medium' : 'text-gray-400'}`}>
+          <div className={`text-xs mt-0.5 ${state.status === 'partial' ? 'text-amber-600 dark:text-amber-400 font-medium' : 'text-gray-500 dark:text-gray-400'}`}>
             {subline}
           </div>
         )}
@@ -295,7 +295,7 @@ function PackRow({ item, dragging, lifted, rowProps, onEdit, onSetPack }) {
           >
             <Minus size={14} />
           </StepButton>
-          <span className="text-xs font-semibold tabular-nums text-gray-500 dark:text-gray-400 w-8 text-center">
+          <span className="text-xs font-semibold tabular-nums text-gray-500 dark:text-gray-500 dark:text-gray-400 w-8 text-center">
             {state.packedQty}/{state.qty}
           </span>
           <StepButton
@@ -318,14 +318,14 @@ function PackRow({ item, dragging, lifted, rowProps, onEdit, onSetPack }) {
         data-no-drag
         onClick={(e) => { e.stopPropagation(); onEdit(item); }}
         aria-label={`Edit ${item.name}`}
-        className="flex-shrink-0 p-1.5 -mr-1 text-gray-300 hover:text-blue-600 dark:text-gray-600 dark:hover:text-blue-400"
+        className="flex-shrink-0 p-1.5 -mr-1 text-gray-500 hover:text-blue-600 dark:text-gray-600 dark:hover:text-blue-400"
       >
         <Pencil size={15} />
       </button>
 
       <GripVertical
         size={15}
-        className={`flex-shrink-0 -ml-1 transition-opacity ${dragging ? 'text-blue-500' : 'text-gray-200 dark:text-gray-700'}`}
+        className={`flex-shrink-0 -ml-1 transition-opacity ${dragging ? 'text-blue-500' : 'text-gray-300 dark:text-gray-700'}`}
       />
     </div>
   );
@@ -338,7 +338,7 @@ function StepButton({ children, label, disabled, onClick }) {
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="w-7 h-7 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 disabled:opacity-30 active:bg-gray-100 dark:active:bg-gray-800"
+      className="w-7 h-7 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-500 dark:text-gray-400 disabled:opacity-30 active:bg-gray-100 dark:active:bg-gray-800"
     >
       {children}
     </button>

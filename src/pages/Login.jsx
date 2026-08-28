@@ -25,7 +25,7 @@ export default function Login() {
       <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 shadow-lg max-w-sm w-full text-center">
         <div className="text-5xl mb-4">🎒</div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">Mike & Jen</h1>
-        <p className="text-gray-400 text-sm mb-8">Nomad Pack List · 2026–2028</p>
+        <p className="text-gray-500 dark:text-gray-400 text-sm mb-8">Nomad Pack List · 2026–2028</p>
 
         {error && (
           <p className="text-red-500 text-sm mb-4 bg-red-50 dark:bg-red-900/20 rounded-lg p-3">{error}</p>
@@ -40,10 +40,10 @@ export default function Login() {
           {loading ? 'Signing in…' : 'Continue with Google'}
         </button>
 
-        <p className="mt-6 text-xs text-gray-400">
+        <p className="mt-6 text-xs text-gray-500 dark:text-gray-400">
           Private app — only accessible to authorized accounts.
         </p>
-        <p className="mt-2 text-[10px] text-gray-300 dark:text-gray-600">{VERSION_LABEL}</p>
+        <p className="mt-2 text-[10px] text-gray-500 dark:text-gray-600">{VERSION_LABEL}</p>
       </div>
     </div>
   );

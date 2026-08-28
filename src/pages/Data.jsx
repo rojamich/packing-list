@@ -97,7 +97,7 @@ export default function Data() {
   return (
     <div className="pb-6">
       <div className="sticky top-0 bg-gray-50 dark:bg-gray-950 z-10 px-4 pt-4 pb-2">
-        <Link to="/" className="inline-flex items-center gap-1 text-sm text-gray-400 mb-1">
+        <Link to="/" className="inline-flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 mb-1">
           <ArrowLeft size={14} /> Back
         </Link>
         <h1 className="text-xl font-bold text-gray-900 dark:text-white">Backup &amp; Bulk Edit</h1>
@@ -107,7 +107,7 @@ export default function Data() {
         {/* ── Export ── */}
         <section className="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm space-y-3">
           <div className="flex items-center gap-2">
-            <Download size={16} className="text-gray-400" />
+            <Download size={16} className="text-gray-500 dark:text-gray-400" />
             <h2 className="font-semibold text-gray-900 dark:text-white">Export</h2>
           </div>
 
@@ -130,7 +130,7 @@ export default function Data() {
             onClick={exportBagsCSV}
           />
 
-          <p className="text-xs text-gray-400 leading-relaxed">
+          <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
             The CSV keeps only the most recent purchase per item — a spreadsheet can't hold the
             full history. Use the JSON backup if you need everything.
           </p>
@@ -139,7 +139,7 @@ export default function Data() {
         {/* ── Import ── */}
         <section className="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm space-y-3">
           <div className="flex items-center gap-2">
-            <Upload size={16} className="text-gray-400" />
+            <Upload size={16} className="text-gray-500 dark:text-gray-400" />
             <h2 className="font-semibold text-gray-900 dark:text-white">Import</h2>
           </div>
 
@@ -147,7 +147,7 @@ export default function Data() {
             <>
               <button
                 onClick={() => fileInput.current?.click()}
-                className="w-full border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl py-6 text-sm font-medium text-gray-500 dark:text-gray-400 active:bg-gray-50 dark:active:bg-gray-800"
+                className="w-full border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl py-6 text-sm font-medium text-gray-500 dark:text-gray-500 dark:text-gray-400 active:bg-gray-50 dark:active:bg-gray-800"
               >
                 Choose a .json or .csv file
               </button>
@@ -158,7 +158,7 @@ export default function Data() {
                 onChange={handleFile}
                 className="hidden"
               />
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 Nothing is written until you've reviewed the changes.
               </p>
             </>
@@ -172,7 +172,7 @@ export default function Data() {
 
           {parsed && plan && (
             <div className="space-y-4">
-              <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+              <p className="text-sm text-gray-500 dark:text-gray-500 dark:text-gray-400 truncate">
                 <span className="font-medium text-gray-900 dark:text-white">{fileName}</span>
                 {' · '}{parsed.items.length} item rows, {parsed.bags.length} bag rows
               </p>
@@ -192,14 +192,14 @@ export default function Data() {
                     <div className={`text-sm font-semibold ${mode === m.key ? 'text-blue-700 dark:text-blue-300' : 'text-gray-900 dark:text-white'}`}>
                       {m.label}
                     </div>
-                    <div className="text-xs text-gray-400 mt-0.5">{m.hint}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{m.hint}</div>
                   </button>
                 ))}
               </div>
 
               {/* What will happen */}
               <div className="border border-gray-100 dark:border-gray-800 rounded-xl overflow-hidden">
-                <div className="px-3 py-2 bg-gray-50 dark:bg-gray-800/50 text-xs font-semibold text-gray-500 dark:text-gray-400">
+                <div className="px-3 py-2 bg-gray-50 dark:bg-gray-800/50 text-xs font-semibold text-gray-500 dark:text-gray-500 dark:text-gray-400">
                   This will make {plan.totalWrites} change{plan.totalWrites === 1 ? '' : 's'}
                 </div>
                 <div className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -220,8 +220,8 @@ export default function Data() {
 
               {plan.skipped.length > 0 && (
                 <details className="text-xs">
-                  <summary className="text-gray-400 cursor-pointer">{plan.skipped.length} row(s) skipped</summary>
-                  <ul className="mt-1 space-y-0.5 text-gray-400 pl-4 list-disc">
+                  <summary className="text-gray-500 dark:text-gray-400 cursor-pointer">{plan.skipped.length} row(s) skipped</summary>
+                  <ul className="mt-1 space-y-0.5 text-gray-500 dark:text-gray-400 pl-4 list-disc">
                     {plan.skipped.slice(0, 15).map((s, i) => <li key={i}>{s}</li>)}
                   </ul>
                 </details>
@@ -237,7 +237,7 @@ export default function Data() {
                       <div key={u.id} className="border border-gray-100 dark:border-gray-800 rounded-lg px-3 py-2">
                         <div className="font-medium text-gray-900 dark:text-white">{u.before.name}</div>
                         {u.changes.map((c) => (
-                          <div key={c.field} className="text-gray-400 mt-0.5">
+                          <div key={c.field} className="text-gray-500 dark:text-gray-400 mt-0.5">
                             {c.field}: <span className="line-through">{String(c.from ?? '—')}</span>
                             {' → '}
                             <span className="text-green-600 dark:text-green-400">{String(c.to ?? '—')}</span>
@@ -313,7 +313,7 @@ export default function Data() {
           </p>
         </section>
 
-        <p className="text-xs text-gray-400 text-center">
+        <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
           Both of you share one dataset — an import changes what you both see.
         </p>
       </div>
@@ -327,12 +327,12 @@ function ExportButton({ icon, title, subtitle, onClick }) {
       onClick={onClick}
       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-left active:bg-gray-50 dark:active:bg-gray-800"
     >
-      <span className="text-gray-400 flex-shrink-0">{icon}</span>
+      <span className="text-gray-500 dark:text-gray-400 flex-shrink-0">{icon}</span>
       <span className="flex-1 min-w-0">
         <span className="block text-sm font-medium text-gray-900 dark:text-white">{title}</span>
-        <span className="block text-xs text-gray-400 truncate">{subtitle}</span>
+        <span className="block text-xs text-gray-500 dark:text-gray-400 truncate">{subtitle}</span>
       </span>
-      <Download size={14} className="text-gray-300 flex-shrink-0" />
+      <Download size={14} className="text-gray-400 dark:text-gray-500 flex-shrink-0" />
     </button>
   );
 }
@@ -341,7 +341,7 @@ const TONES = {
   blue:  'text-blue-600 dark:text-blue-400',
   green: 'text-green-600 dark:text-green-400',
   red:   'text-red-600 dark:text-red-400',
-  gray:  'text-gray-400',
+  gray:  'text-gray-500 dark:text-gray-400',
 };
 
 function Tally({ label, value, tone }) {

@@ -58,7 +58,7 @@ export default function BagModal({ bag, itemCount = 0, onClose }) {
           <h2 className="font-semibold text-gray-900 dark:text-white text-lg">
             {isNew ? 'Add Bag' : 'Edit Bag'}
           </h2>
-          <button onClick={onClose} className="p-2 -mr-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+          <button onClick={onClose} className="p-2 -mr-2 text-gray-500 dark:text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
             <X size={20} />
           </button>
         </div>
@@ -120,7 +120,7 @@ export default function BagModal({ bag, itemCount = 0, onClose }) {
 
           {!isNew && itemCount > 0 && (
             <div className="bg-gray-50 dark:bg-gray-800 rounded-xl px-3 py-2.5">
-              <p className="text-sm text-gray-500 dark:text-gray-400">{itemCount} item{itemCount !== 1 ? 's' : ''} in this bag</p>
+              <p className="text-sm text-gray-500 dark:text-gray-500 dark:text-gray-400">{itemCount} item{itemCount !== 1 ? 's' : ''} in this bag</p>
             </div>
           )}
 
@@ -179,7 +179,7 @@ export default function BagModal({ bag, itemCount = 0, onClose }) {
 function Field({ label, children }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">{label}</label>
+      <label className="block text-sm font-medium text-gray-500 dark:text-gray-500 dark:text-gray-400 mb-1">{label}</label>
       {children}
     </div>
   );

@@ -74,7 +74,7 @@ export default function Gear() {
       <div className="sticky top-0 bg-gray-50 dark:bg-gray-950 z-10 px-4 pt-4 pb-2 space-y-2">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">Gear</h1>
-          <span className="text-sm text-gray-400">{items.length} items</span>
+          <span className="text-sm text-gray-500 dark:text-gray-400">{items.length} items</span>
         </div>
 
         {/* View toggle */}
@@ -86,7 +86,7 @@ export default function Gear() {
               className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-colors capitalize ${
                 view === v
                   ? 'bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm'
-                  : 'text-gray-500 dark:text-gray-400'
+                  : 'text-gray-500 dark:text-gray-500 dark:text-gray-400'
               }`}
             >
               {v === 'items' ? `Items (${items.length})` : `Bags (${bags.length})`}
@@ -98,13 +98,13 @@ export default function Gear() {
         {view === 'items' && (
           <>
             <div className="relative">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400" />
               <input
                 type="search"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search items…"
-                className="w-full pl-9 pr-4 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-9 pr-4 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
@@ -143,10 +143,10 @@ export default function Gear() {
               >
                 <span className="font-semibold text-gray-900 dark:text-white text-sm">{category}</span>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-400">{catItems.length}</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">{catItems.length}</span>
                   {isExpanded(category)
-                    ? <ChevronDown size={16} className="text-gray-400" />
-                    : <ChevronRight size={16} className="text-gray-400" />}
+                    ? <ChevronDown size={16} className="text-gray-500 dark:text-gray-400" />
+                    : <ChevronRight size={16} className="text-gray-500 dark:text-gray-400" />}
                 </div>
               </button>
 
@@ -161,7 +161,7 @@ export default function Gear() {
                       <div className={`w-2 h-2 rounded-full flex-shrink-0 ${COND_DOT[item.condition] || 'bg-gray-300'}`} />
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium text-gray-900 dark:text-white truncate">{item.name}</div>
-                        <div className="text-xs text-gray-400 mt-0.5 truncate">
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
                           {item.inBag || 'Unassigned'}
                           {item.qty > 1 && ` · ×${item.qty}`}
                         </div>
@@ -178,7 +178,7 @@ export default function Gear() {
           ))}
 
           {grouped.length === 0 && (
-            <div className="text-center py-16 text-gray-400">
+            <div className="text-center py-16 text-gray-500 dark:text-gray-400">
               <p className="text-4xl mb-3">🔍</p>
               <p className="font-medium">No items found</p>
               <p className="text-sm mt-1">Try adjusting your filters</p>
@@ -203,12 +203,12 @@ export default function Gear() {
                     <span className="text-xl">{bag.emoji || '🎒'}</span>
                     <div>
                       <div className="font-semibold text-gray-900 dark:text-white text-sm">{bag.name}</div>
-                      <div className="text-xs text-gray-400 mt-0.5">{bag.owner} · {count} item{count !== 1 ? 's' : ''}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{bag.owner} · {count} item{count !== 1 ? 's' : ''}</div>
                     </div>
                     <span className="ml-auto mr-2">
                       {isExpanded(`bag-${bag.id}`)
-                        ? <ChevronDown size={15} className="text-gray-400" />
-                        : <ChevronRight size={15} className="text-gray-400" />}
+                        ? <ChevronDown size={15} className="text-gray-500 dark:text-gray-400" />
+                        : <ChevronRight size={15} className="text-gray-500 dark:text-gray-400" />}
                     </span>
                   </button>
                   <button
@@ -238,7 +238,7 @@ export default function Gear() {
                 )}
 
                 {isExpanded(`bag-${bag.id}`) && bagItems.length === 0 && (
-                  <p className="px-4 pb-3 text-sm text-gray-400 border-t border-gray-50 dark:border-gray-800 pt-2">No items in this bag yet.</p>
+                  <p className="px-4 pb-3 text-sm text-gray-500 dark:text-gray-400 border-t border-gray-50 dark:border-gray-800 pt-2">No items in this bag yet.</p>
                 )}
               </div>
             );
@@ -254,11 +254,11 @@ export default function Gear() {
                 <span className="text-xl">📦</span>
                 <div className="flex-1">
                   <div className="font-semibold text-gray-900 dark:text-white text-sm">Unassigned</div>
-                  <div className="text-xs text-gray-400 mt-0.5">{unassignedCount} item{unassignedCount !== 1 ? 's' : ''}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{unassignedCount} item{unassignedCount !== 1 ? 's' : ''}</div>
                 </div>
                 {isExpanded('bag-unassigned')
-                  ? <ChevronDown size={15} className="text-gray-400" />
-                  : <ChevronRight size={15} className="text-gray-400" />}
+                  ? <ChevronDown size={15} className="text-gray-500 dark:text-gray-400" />
+                  : <ChevronRight size={15} className="text-gray-500 dark:text-gray-400" />}
               </button>
               {isExpanded('bag-unassigned') && (
                 <div className="divide-y divide-gray-50 dark:divide-gray-800 border-t border-gray-50 dark:border-gray-800">
@@ -281,7 +281,7 @@ export default function Gear() {
           )}
 
           {bags.length === 0 && unassignedCount === 0 && (
-            <div className="text-center py-16 text-gray-400">
+            <div className="text-center py-16 text-gray-500 dark:text-gray-400">
               <p className="text-4xl mb-3">🎒</p>
               <p className="font-medium">No bags yet</p>
               <p className="text-sm mt-1">Tap + to add your first bag</p>
@@ -329,12 +329,12 @@ function PriceLine({ item }) {
         </span>
       )}
       {pctOff != null && (
-        <span className="text-gray-400">
+        <span className="text-gray-500 dark:text-gray-400">
           wait {formatUSD(item.waitPrice, { round: true })} <span className="opacity-60">−{pctOff}%</span>
         </span>
       )}
       {paid && (
-        <span className="text-gray-400">paid {formatUSD(paid.amountUSD, { round: true })}</span>
+        <span className="text-gray-500 dark:text-gray-400">paid {formatUSD(paid.amountUSD, { round: true })}</span>
       )}
     </div>
   );
