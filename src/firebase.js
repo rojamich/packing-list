@@ -1,5 +1,9 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import {
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+} from 'firebase/firestore';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 
 const app = initializeApp({
@@ -11,6 +15,19 @@ const app = initializeApp({
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 });
 
-export const db = getFirestore(app);
+// Persist the cache to IndexedDB rather than memory. Everything else here is
+// built offline-first — the service worker, the bundled fallback rates — but
+// the default memory cache doesn't survive a reload, so a cold start with no
+// signal showed an empty gear list. The multi-tab manager keeps two open tabs
+// from fighting over the same IndexedDB lease.
+//
+// If IndexedDB is unavailable (private browsing, storage disabled) the SDK
+// logs a warning and falls back to the in-memory cache on its own, so this is
+// safe to call unconditionally.
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager(),
+  }),
+});
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
