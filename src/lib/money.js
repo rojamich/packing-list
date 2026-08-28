@@ -243,11 +243,29 @@ export async function fetchRates() {
     if (!res.ok) return null;
     const json = await res.json();
     if (json?.result !== 'success' || !json?.rates) return null;
+
+    // This is an unauthenticated third-party feed whose output is written to
+    // shared Firestore state and then drives every deal verdict and the whole
+    // Kit Value panel. A wrong number here doesn't error — it just makes the
+    // app confidently wrong in a shop, which is when it's trusted most.
+    //
+    // The endpoint is USD-based, so USD must come back as exactly 1. If it
+    // doesn't, the response is quoted against some other base and every
+    // conversion would be silently scaled.
+    if (Number(json.rates.USD) !== 1) return null;
+
     // Keep only the currencies we show, so the settings doc stays small.
     const rates = {};
     CURRENCY_CODES.forEach((code) => {
       const r = Number(json.rates[code]);
-      if (Number.isFinite(r) && r > 0) rates[code] = r;
+      if (!Number.isFinite(r) || r <= 0) return;
+      // Drop values wildly off the bundled table — that band is wide enough to
+      // absorb years of ordinary drift and even ARS-style inflation, while
+      // still catching a decimal-place slip or a placeholder value. A dropped
+      // code falls back to FALLBACK_RATES via rateFor().
+      const base = FALLBACK_RATES[code];
+      if (base && (r > base * 20 || r < base / 20)) return;
+      rates[code] = r;
     });
     return Object.keys(rates).length > 1 ? rates : null;
   } catch {
