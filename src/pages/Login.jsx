@@ -1,19 +1,69 @@
-import { useState } from 'react';
-import { signInWithPopup } from 'firebase/auth';
+import { useEffect, useState } from 'react';
+import { signInWithPopup, signInWithRedirect, getRedirectResult } from 'firebase/auth';
 import { auth, googleProvider } from '../firebase';
 import { VERSION_LABEL } from '../lib/version';
+
+/**
+ * Installed on the home screen, iOS either blocks the auth popup outright or
+ * opens it in a detached context that never returns a result — leaving the
+ * button stuck on "Signing in…" forever. This app is built to be installed
+ * (standalone manifest, Apple meta tags, shortcuts), so that is the normal
+ * case, not the edge case. Redirect there and keep the popup for browser tabs,
+ * where it's the nicer flow.
+ */
+function isStandalone() {
+  return window.matchMedia?.('(display-mode: standalone)').matches === true
+      || window.navigator.standalone === true;
+}
+
+// Popup failures that are worth retrying as a redirect rather than reporting.
+const RETRY_AS_REDIRECT = new Set([
+  'auth/popup-blocked',
+  'auth/cancelled-popup-request',
+  'auth/operation-not-supported-in-this-environment',
+  'auth/web-storage-unsupported',
+]);
 
 export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // A redirect sign-in finishes by reloading the app, so the result has to be
+  // collected on mount. onAuthStateChanged then picks the session up as usual.
+  useEffect(() => {
+    let alive = true;
+    getRedirectResult(auth).catch(() => {
+      if (alive) setError('Sign in didn’t complete. Please try again.');
+    });
+    return () => { alive = false; };
+  }, []);
+
   async function handleSignIn() {
     setLoading(true);
     setError(null);
+
+    // Navigates away on success, so there is nothing to reset afterwards.
+    if (isStandalone()) {
+      try {
+        await signInWithRedirect(auth, googleProvider);
+        return;
+      } catch {
+        // Fall through and try the popup rather than dead-ending.
+      }
+    }
+
     try {
       await signInWithPopup(auth, googleProvider);
     } catch (e) {
-      if (e.code !== 'auth/popup-closed-by-user') {
+      if (RETRY_AS_REDIRECT.has(e?.code)) {
+        try {
+          await signInWithRedirect(auth, googleProvider);
+          return;
+        } catch {
+          // Fall through to the error below.
+        }
+      }
+      if (e?.code !== 'auth/popup-closed-by-user') {
         setError('Sign in failed. Please try again.');
       }
       setLoading(false);
