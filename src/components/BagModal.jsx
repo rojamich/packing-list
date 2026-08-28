@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X, AlertTriangle } from 'lucide-react';
 import { addBag, updateBag, deleteBag } from '../data/store';
 import { useData } from '../context/DataContext';
@@ -19,6 +19,13 @@ export default function BagModal({ bag, itemCount = 0, onClose }) {
   const [deleteStep, setDeleteStep] = useState(null); // null | 'confirm'
   const [reassignTo, setReassignTo] = useState('');
   const [error,      setError]      = useState(null);
+
+  // Same as ItemModal: don't leave the destructive button armed.
+  useEffect(() => {
+    if (!deleteStep) return undefined;
+    const t = setTimeout(() => setDeleteStep(null), 4000);
+    return () => clearTimeout(t);
+  }, [deleteStep]);
 
   const otherBags = bags.filter((b) => b.id !== bag?.id);
 

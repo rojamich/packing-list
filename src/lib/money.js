@@ -164,7 +164,9 @@ export function dealVerdict(priceUSD, targetUSD, waitUSD) {
   const p = num(priceUSD);
   const t = num(targetUSD);
   const w = num(waitUSD);
-  if (!Number.isFinite(p) || !Number.isFinite(t) || t <= 0 || p < 0) return null;
+  // p <= 0 rather than p < 0: a blank-ish zero used to land in the `ratio <= 0.7`
+  // band and come back as a confident "Steal".
+  if (!Number.isFinite(p) || !Number.isFinite(t) || t <= 0 || p <= 0) return null;
 
   const ratio = p / t;
   const hasWait = Number.isFinite(w) && w > 0 && w < t;
@@ -181,6 +183,23 @@ export function dealVerdict(priceUSD, targetUSD, waitUSD) {
   if (ratio <= 1.05) return { ...VERDICTS.fair,    ratio };
   if (ratio <= 1.25) return { ...VERDICTS.high,    ratio };
   return { ...VERDICTS.overpay, ratio };
+}
+
+/**
+ * Why a wait price is being ignored, or null when it's fine.
+ *
+ * `dealVerdict` only honours a wait price below the target — above it the number
+ * is meaningless. It used to drop it without a word and fall back to the
+ * percentage bands, so a typo (or the two prices entered in the wrong boxes)
+ * produced a confident verdict built on input the app had discarded.
+ */
+export function waitPriceIssue(targetUSD, waitUSD) {
+  const t = num(targetUSD);
+  const w = num(waitUSD);
+  if (!Number.isFinite(w) || w <= 0) return null;
+  if (!Number.isFinite(t) || t <= 0) return 'Set a target price and the wait price starts working.';
+  if (w >= t) return 'The wait price needs to be below the target price — this one is being ignored.';
+  return null;
 }
 
 /** How far under target a wait price sits, as a whole percent. */

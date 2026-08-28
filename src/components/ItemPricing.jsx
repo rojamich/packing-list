@@ -3,7 +3,7 @@ import { Trash2, Tag, Receipt, Timer } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import {
   CURRENCIES, currencyMeta, decimalsFor, rateFor, toUSD, fromUSD,
-  formatUSD, formatLocal, dealVerdict, deltaLabel, waitPctOff,
+  formatUSD, formatLocal, dealVerdict, deltaLabel, waitPctOff, waitPriceIssue,
   VERDICT_CLASSES, BASE_CURRENCY,
 } from '../lib/money';
 import { formatDay, toDateInput } from '../lib/dates';
@@ -42,6 +42,7 @@ export default function ItemPricing({
 
   const waitUSD = waitPrice === '' || waitPrice == null ? null : Number(waitPrice);
   const pctOff = waitPctOff(targetUSD, waitUSD);
+  const waitIssue = waitPriceIssue(targetUSD, waitUSD);
 
   const rate = rateFor(currency, rates);
   const enteredUSD = localPrice === '' ? null : toUSD(localPrice, currency, rates);
@@ -135,6 +136,11 @@ export default function ItemPricing({
               ? 'Add a wait price if this item goes on sale often — some discount far more than others.'
               : 'Set a target once. The check below compares any local price against it.'}
         </p>
+        {waitIssue && (
+          <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-2.5 py-1.5 mt-1.5">
+            {waitIssue}
+          </p>
+        )}
         {targetLocal != null && (
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
             Target ≈ {formatLocal(targetLocal, currency)} at today's rate.

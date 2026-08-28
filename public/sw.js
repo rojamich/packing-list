@@ -46,8 +46,12 @@ self.addEventListener('fetch', (event) => {
     event.respondWith((async () => {
       try {
         const fresh = await fetch(req);
-        const cache = await caches.open(CACHE);
-        cache.put('/index.html', fresh.clone());
+        // Only cache a real page. Caching a 500 here would make it the shell
+        // every subsequent offline launch serves.
+        if (fresh.ok) {
+          const cache = await caches.open(CACHE);
+          cache.put('/index.html', fresh.clone());
+        }
         return fresh;
       } catch {
         const cached = await caches.match('/index.html');

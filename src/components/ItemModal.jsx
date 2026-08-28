@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { addItem, updateItem, deleteItem, logPurchase, removePurchase, setPurchases } from '../data/store';
@@ -79,6 +79,14 @@ export default function ItemModal({ item, onClose }) {
 
   const [saving, setSaving]               = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // Disarm on its own. Left primed, the confirm state sits directly beneath
+  // Save for the rest of the session.
+  useEffect(() => {
+    if (!confirmDelete) return undefined;
+    const t = setTimeout(() => setConfirmDelete(false), 4000);
+    return () => clearTimeout(t);
+  }, [confirmDelete]);
   const [error, setError]                 = useState(null);
 
   const purchases = isNew ? pendingPurchases : (live?.purchases || []);
