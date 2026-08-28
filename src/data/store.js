@@ -1,0 +1,336 @@
+// All Firestore writes live here. Reads are in ../context/DataContext.jsx,
+// which holds a single subscription per collection.
+
+import {
+  collection, doc, addDoc, updateDoc, deleteDoc, setDoc,
+  writeBatch, serverTimestamp, getDocs, query, where,
+} from 'firebase/firestore';
+import { db } from '../firebase';
+import { SEED_ITEMS, SEED_BAGS } from './seedData';
+import { packFields, itemQty } from '../lib/packing';
+import { toDateInput } from '../lib/dates';
+
+export const SETTINGS_DOC = doc(db, 'settings', 'app');
+
+// Spacing between sortOrder values so a single move can be written without
+// renumbering the whole list.
+const ORDER_STEP = 1000;
+
+// ── Items ─────────────────────────────────────────────────────────
+
+export async function addItem(data) {
+  const qty = itemQty(data);
+  return addDoc(collection(db, 'items'), {
+    ...data,
+    qty,
+    ...packFields(qty, 0, false),
+    purchases: data.purchases || [],
+    targetPrice: data.targetPrice ?? null,
+    waitPrice: data.waitPrice ?? null,
+    sortOrder: data.sortOrder ?? Date.now(),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function updateItem(id, data) {
+  const { id: _id, createdAt, ...rest } = data;
+  await updateDoc(doc(db, 'items', id), { ...rest, updatedAt: serverTimestamp() });
+}
+
+export async function deleteItem(id) {
+  await deleteDoc(doc(db, 'items', id));
+}
+
+export async function setPackState(id, fields) {
+  await updateDoc(doc(db, 'items', id), { ...fields, updatedAt: serverTimestamp() });
+}
+
+export async function resetAllPacked(items) {
+  const targets = items.filter((i) => i.packedQty > 0 || i.worn || i.packed || i.packStatus === 'packed' || i.packStatus === 'worn');
+  if (targets.length === 0) return;
+  await commitInChunks(targets, (batch, item) => {
+    batch.update(doc(db, 'items', item.id), packFields(itemQty(item), 0, false));
+  });
+}
+
+/** Persist a new within-bag ordering. `orderedIds` is the full group, in order. */
+export async function reorderItems(orderedIds) {
+  if (!orderedIds?.length) return;
+  await commitInChunks(orderedIds, (batch, id, i) => {
+    batch.update(doc(db, 'items', id), { sortOrder: (i + 1) * ORDER_STEP });
+  });
+}
+
+// ── Purchases ─────────────────────────────────────────────────────
+
+/**
+ * Append a purchase. The USD amount and the rate used are both stored, so a
+ * price logged in Bangkok still reads correctly a year later.
+ */
+export async function logPurchase(item, entry) {
+  await setPurchases(item.id, [...(item.purchases || []), entry]);
+}
+
+export async function removePurchase(item, purchaseId) {
+  await setPurchases(item.id, (item.purchases || []).filter((p) => p.id !== purchaseId));
+}
+
+function normalizePurchase(entry) {
+  return {
+    id: entry.id && !String(entry.id).startsWith('pending-')
+      ? entry.id
+      : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    date: entry.date || toDateInput(new Date()),
+    amountUSD: Number(entry.amountUSD) || 0,
+    amountLocal: Number(entry.amountLocal) || 0,
+    currency: entry.currency || 'USD',
+    rate: Number(entry.rate) || 1,
+    where: entry.where || '',
+    note: entry.note || '',
+  };
+}
+
+/** Replace the whole history. The top-level cost/purchaseDate mirrors follow the newest entry. */
+export async function setPurchases(id, entries) {
+  const purchases = (entries || []).map(normalizePurchase);
+  const latest = [...purchases].sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];
+  await updateDoc(doc(db, 'items', id), {
+    purchases,
+    // Mirrors so replacement dates and older views keep working.
+    purchaseDate: latest?.date ?? null,
+    cost: latest?.amountUSD ?? null,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+// ── Bags ──────────────────────────────────────────────────────────
+
+export async function addBag(data) {
+  return addDoc(collection(db, 'bags'), {
+    ...data,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/** Items reference bags by name, so a rename has to rewrite every member item. */
+export async function updateBag(id, oldName, newData) {
+  await updateDoc(doc(db, 'bags', id), { ...newData, updatedAt: serverTimestamp() });
+  if (oldName && oldName !== newData.name) {
+    const snap = await getDocs(query(collection(db, 'items'), where('inBag', '==', oldName)));
+    if (!snap.empty) {
+      await commitInChunks(snap.docs, (batch, d) => batch.update(d.ref, { inBag: newData.name }));
+    }
+  }
+}
+
+export async function deleteBag(id, name, reassignTo = null) {
+  const snap = await getDocs(query(collection(db, 'items'), where('inBag', '==', name)));
+  if (!snap.empty) {
+    await commitInChunks(snap.docs, (batch, d) => batch.update(d.ref, { inBag: reassignTo }));
+  }
+  await deleteDoc(doc(db, 'bags', id));
+}
+
+export async function reorderBags(orderedIds) {
+  if (!orderedIds?.length) return;
+  await commitInChunks(orderedIds, (batch, id, i) => {
+    batch.update(doc(db, 'bags', id), { order: i + 1 });
+  });
+}
+
+// ── Settings ──────────────────────────────────────────────────────
+
+export async function updateSettings(data) {
+  await setDoc(SETTINGS_DOC, { ...data, updatedAt: serverTimestamp() }, { merge: true });
+}
+
+// ── Seed ──────────────────────────────────────────────────────────
+
+/**
+ * First-run import. Guarded: re-running can't duplicate the list, which the
+ * old version would happily do.
+ */
+export async function seedDatabase() {
+  const [itemSnap, bagSnap] = await Promise.all([
+    getDocs(collection(db, 'items')),
+    getDocs(collection(db, 'bags')),
+  ]);
+
+  if (bagSnap.empty) {
+    const batch = writeBatch(db);
+    SEED_BAGS.forEach((bag) => {
+      batch.set(doc(collection(db, 'bags')), { ...bag, createdAt: serverTimestamp() });
+    });
+    await batch.commit();
+  }
+
+  if (!itemSnap.empty) return { skipped: true, count: itemSnap.size };
+
+  await commitInChunks(SEED_ITEMS, (batch, item, i) => {
+    const qty = itemQty(item);
+    batch.set(doc(collection(db, 'items')), {
+      ...item,
+      qty,
+      ...packFields(qty, 0, false),
+      purchases: [],
+      purchaseDate: null,
+      cost: null,
+      targetPrice: item.targetPrice ?? null,
+      sortOrder: (i + 1) * ORDER_STEP,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  });
+
+  return { skipped: false, count: SEED_ITEMS.length };
+}
+
+// ── Import ────────────────────────────────────────────────────────
+
+/**
+ * Applies a plan from lib/transfer.js. The plan has already been shown to the
+ * user, so this just executes it — batched, so a big import is a handful of
+ * round trips rather than hundreds.
+ */
+export async function applyImportPlan(plan) {
+  const ops = [];
+
+  // Bags first so items referring to them land in a consistent world.
+  plan.bagCreates.forEach((bag) => ops.push({ kind: 'bag-create', bag }));
+  plan.bagUpdates.forEach((u) => ops.push({ kind: 'bag-update', id: u.id, bag: u.after }));
+
+  plan.itemCreates.forEach((item) => ops.push({ kind: 'item-create', item }));
+  plan.itemUpdates.forEach((u) => ops.push({ kind: 'item-update', id: u.id, item: u.after, addPurchase: u.addPurchase, before: u.before }));
+  plan.itemDeletes.forEach((item) => ops.push({ kind: 'item-delete', id: item.id }));
+
+  await commitInChunks(ops, (batch, op, i) => {
+    switch (op.kind) {
+      case 'bag-create':
+        batch.set(doc(collection(db, 'bags')), {
+          name: op.bag.name, owner: op.bag.owner, emoji: op.bag.emoji, order: op.bag.order,
+          createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+        });
+        break;
+
+      case 'bag-update':
+        batch.update(doc(db, 'bags', op.id), {
+          name: op.bag.name, owner: op.bag.owner, emoji: op.bag.emoji, order: op.bag.order,
+          updatedAt: serverTimestamp(),
+        });
+        break;
+
+      case 'item-create': {
+        const qty = itemQty(op.item);
+        const purchases = buildPurchases(op.item, []);
+        batch.set(doc(collection(db, 'items')), {
+          ...itemPayload(op.item, qty),
+          ...packFields(qty, op.item.packedQty ?? 0, op.item.worn ?? false),
+          ...purchaseMirrors(purchases),
+          sortOrder: op.item.sortOrder ?? (i + 1) * ORDER_STEP,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+        break;
+      }
+
+      case 'item-update': {
+        const qty = itemQty(op.item);
+        const purchases = buildPurchases(op.item, op.before?.purchases || [], op.addPurchase);
+        // Write only the columns the file actually carried — a prices-only
+        // sheet must not blank out bags, quantities or notes.
+        const payload = { ...itemPayload(op.item, qty, op.item._provided), updatedAt: serverTimestamp() };
+
+        // A CSV has no pack columns; leave packing state alone unless the file
+        // actually carried it (a JSON backup does).
+        if (op.item.packedQty !== undefined || op.item.worn !== undefined) {
+          Object.assign(payload, packFields(qty, op.item.packedQty ?? 0, op.item.worn ?? false));
+        }
+        if (purchases) Object.assign(payload, purchaseMirrors(purchases));
+
+        batch.update(doc(db, 'items', op.id), payload);
+        break;
+      }
+
+      case 'item-delete':
+        batch.delete(doc(db, 'items', op.id));
+        break;
+    }
+  });
+
+  if (plan.settings?.activeCurrency) {
+    await updateSettings({ activeCurrency: plan.settings.activeCurrency });
+  }
+
+  return { writes: ops.length };
+}
+
+/**
+ * `fields` limits the write to the columns an import actually supplied.
+ * Omit it (creates, JSON restores) to write the full record.
+ */
+function itemPayload(item, qty, fields = null) {
+  const full = {
+    name: item.name,
+    category: item.category,
+    person: item.person,
+    qty,
+    status: item.status,
+    inBag: item.inBag ?? null,
+    condition: item.condition,
+    estLifeMonths: item.estLifeMonths,
+    targetPrice: item.targetPrice ?? null,
+    waitPrice: item.waitPrice ?? null,
+    notes: item.notes ?? '',
+  };
+  if (!fields) return full;
+
+  const out = {};
+  fields.forEach((f) => {
+    if (f === 'qty') out.qty = qty;
+    else if (f in full) out[f] = full[f];
+  });
+  return out;
+}
+
+/** Returns the purchase list to write, or null to leave it untouched. */
+function buildPurchases(item, existing, addPurchase) {
+  if (Array.isArray(item.purchases) && item.purchases.length) return item.purchases;
+  if (addPurchase) return [...existing, addPurchase];
+  if (Array.isArray(item.purchases)) return item.purchases;
+  return null;
+}
+
+function purchaseMirrors(purchases) {
+  const list = (purchases || []).map((p, i) => ({
+    id: p.id || `imp-${Date.now()}-${i}`,
+    date: p.date || null,
+    amountUSD: Number(p.amountUSD) || 0,
+    amountLocal: Number(p.amountLocal) || 0,
+    currency: p.currency || 'USD',
+    rate: Number(p.rate) || 1,
+    where: p.where || '',
+    note: p.note || '',
+  }));
+  const latest = [...list].sort((a, b) => String(b.date).localeCompare(String(a.date)))[0];
+  return {
+    purchases: list,
+    purchaseDate: latest?.date ?? null,
+    cost: latest?.amountUSD ?? null,
+  };
+}
+
+// ── Batching ──────────────────────────────────────────────────────
+
+// Firestore caps a batch at 500 writes; the gear list is already ~94 items and
+// grows, so every bulk write goes through here.
+const BATCH_LIMIT = 450;
+
+async function commitInChunks(list, apply) {
+  for (let start = 0; start < list.length; start += BATCH_LIMIT) {
+    const batch = writeBatch(db);
+    list.slice(start, start + BATCH_LIMIT).forEach((entry, i) => apply(batch, entry, start + i));
+    await batch.commit();
+  }
+}

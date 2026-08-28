@@ -1,0 +1,7 @@
+{
+  "projects": {
+    "packing-list": "nomad-pack-list"
+  },
+  "targets": {},
+  "etags": {}
+}

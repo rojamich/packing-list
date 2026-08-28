@@ -1,0 +1,48 @@
+rules_version = '2';
+
+// This is a two-person app. The previous rule allowed ANY signed-in Google
+// account — anyone on the internet could sign in and read or edit the whole
+// inventory. Access is now limited to the accounts listed below.
+//
+// ⚠️ Add Jen's Google account to ALLOWED before deploying, or she'll be locked
+// out. Deploy with:  firebase deploy --only firestore:rules
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ┌──────────────────────────────────────────────────────────────┐
+    // │ WHO CAN USE THE APP — add an address here, then redeploy:    │
+    // │   npm run deploy:rules                                       │
+    // │                                                              │
+    // │ Anyone can *sign in* with Google (that's Firebase Auth, and  │
+    // │ it creates a UID for them). Only the addresses in this list  │
+    // │ can read or write any data. An account that signs in but     │
+    // │ isn't listed sees the "no access" screen.                    │
+    // └──────────────────────────────────────────────────────────────┘
+    function allowed() {
+      return request.auth != null &&
+             request.auth.token.email_verified == true &&
+             request.auth.token.email in [
+               'mike.v.rojas@gmail.com'
+               , 'mije122012@gmail.com'
+             ];
+    }
+
+    match /items/{itemId} {
+      allow read, write: if allowed();
+    }
+
+    match /bags/{bagId} {
+      allow read, write: if allowed();
+    }
+
+    match /settings/{docId} {
+      allow read, write: if allowed();
+    }
+
+    // Anything else is closed.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

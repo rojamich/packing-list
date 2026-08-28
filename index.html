@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+
+    <title>Nomad Pack List</title>
+    <meta name="description" content="Gear, packing and replacement-price tracker for full-time travel." />
+
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- Match the app chrome to the theme on both sides. -->
+    <meta name="theme-color" content="#f9fafb" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#030712" media="(prefers-color-scheme: dark)" />
+
+    <!-- iOS has no manifest support for standalone mode; these do the job. -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Pack List" />
+    <link rel="apple-touch-icon" href="/icons/icon-180.png" />
+
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
