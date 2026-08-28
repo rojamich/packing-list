@@ -289,43 +289,58 @@ function PackRow({ item, dragging, lifted, rowProps, onEdit, onSetPack }) {
     multi                      ? `${state.packedQty} of ${state.qty} packed` :
                                  null;
 
+  // aria-pressed carries the three meaningful states; "mixed" is exactly what a
+  // partially packed set of three t-shirts is.
+  const pressed = state.status === 'unpacked' ? 'false'
+                : state.status === 'partial'  ? 'mixed'
+                :                               'true';
+
   return (
     <div
       ref={ref}
       {...handlers}
-      onClick={toggle}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } }}
       style={{ touchAction: lifted ? 'none' : 'pan-y' }}
-      className={`flex items-center gap-3 px-4 py-3 text-left transition-shadow select-none ${
+      className={`flex items-center gap-3 px-4 py-3 transition-shadow select-none ${
         dragging
           ? 'relative z-20 bg-blue-50 dark:bg-blue-900/30 shadow-lg rounded-xl'
           : 'active:bg-gray-50 dark:active:bg-gray-800'
       }`}
     >
-      <StatusCircle state={state} />
+      {/* The row used to be role="button" with the stepper and edit controls
+          nested inside it, which is invalid: interactive elements can't contain
+          one another, and it left screen readers announcing the row and its
+          children as a single confused control. The toggle is its own button
+          now, still spanning most of the row so the touch target is unchanged.
+          It carries no data-no-drag, so press-and-hold still starts a drag. */}
+      <button
+        type="button"
+        onClick={toggle}
+        aria-pressed={pressed}
+        className="flex-1 flex items-center gap-3 min-w-0 text-left rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+      >
+        <StatusCircle state={state} />
 
-      <div className="flex-1 min-w-0">
-        <div className={`text-sm font-medium transition-colors ${
-          state.status === 'unpacked'
-            ? 'text-gray-900 dark:text-white'
-            : state.status === 'partial'
-              ? 'text-gray-700 dark:text-gray-200'
-              : 'text-gray-500 dark:text-gray-400 line-through'
-        }`}>
-          {item.name}
-          {multi && <span className="text-gray-500 dark:text-gray-400 font-normal no-underline"> ×{state.qty}</span>}
-        </div>
-        {subline && (
-          <div className={`text-xs mt-0.5 ${state.status === 'partial' ? 'text-amber-600 dark:text-amber-400 font-medium' : 'text-gray-500 dark:text-gray-400'}`}>
-            {subline}
-          </div>
-        )}
-      </div>
+        <span className="flex-1 min-w-0">
+          <span className={`block text-sm font-medium transition-colors truncate ${
+            state.status === 'unpacked'
+              ? 'text-gray-900 dark:text-white'
+              : state.status === 'partial'
+                ? 'text-gray-700 dark:text-gray-200'
+                : 'text-gray-500 dark:text-gray-400 line-through'
+          }`}>
+            {item.name}
+            {multi && <span className="text-gray-500 dark:text-gray-400 font-normal no-underline"> ×{state.qty}</span>}
+          </span>
+          {subline && (
+            <span className={`block text-xs mt-0.5 ${state.status === 'partial' ? 'text-amber-600 dark:text-amber-400 font-medium' : 'text-gray-500 dark:text-gray-400'}`}>
+              {subline}
+            </span>
+          )}
+        </span>
+      </button>
 
       {multi && !state.worn && (
-        <div data-no-drag className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+        <div data-no-drag className="flex items-center gap-1 flex-shrink-0">
           <StepButton
             label={`Unpack one ${item.name}`}
             disabled={state.packedQty === 0}
@@ -354,7 +369,7 @@ function PackRow({ item, dragging, lifted, rowProps, onEdit, onSetPack }) {
 
       <button
         data-no-drag
-        onClick={(e) => { e.stopPropagation(); onEdit(item); }}
+        onClick={() => onEdit(item)}
         aria-label={`Edit ${item.name}`}
         className="flex-shrink-0 p-1.5 -mr-1 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400"
       >
