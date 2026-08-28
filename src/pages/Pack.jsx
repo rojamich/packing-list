@@ -154,7 +154,7 @@ export default function Pack() {
           <div className="flex justify-between text-sm mb-2">
             <span className="text-gray-500 dark:text-gray-400">
               {stats.packed > 0 && <span className="text-green-600 font-medium">{stats.packed} packed</span>}
-              {stats.packed > 0 && stats.worn > 0 && <span className="text-gray-500 dark:text-gray-600"> · </span>}
+              {stats.packed > 0 && stats.worn > 0 && <span className="text-gray-500 dark:text-gray-400"> · </span>}
               {stats.worn > 0 && <span className="text-indigo-500 font-medium">{stats.worn} worn</span>}
               {stats.done === 0 && <span>Not started</span>}
             </span>

@@ -333,7 +333,7 @@ function ExportButton({ icon, title, subtitle, onClick }) {
         <span className="block text-sm font-medium text-gray-900 dark:text-white">{title}</span>
         <span className="block text-xs text-gray-500 dark:text-gray-400 truncate">{subtitle}</span>
       </span>
-      <Download size={14} className="text-gray-400 dark:text-gray-500 flex-shrink-0" />
+      <Download size={14} className="text-gray-400 flex-shrink-0" />
     </button>
   );
 }

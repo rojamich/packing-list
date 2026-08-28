@@ -278,7 +278,7 @@ export default function Dashboard() {
             Export a backup · set prices in a spreadsheet · import
           </span>
         </span>
-        <ChevronRight size={18} className="text-gray-500 dark:text-gray-600 flex-shrink-0" />
+        <ChevronRight size={18} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
       </Link>
 
       <VersionFooter />
@@ -295,7 +295,7 @@ function VersionFooter() {
       <p className="text-xs text-gray-500 dark:text-gray-400">
         v{APP_VERSION} · built {formatBuildDate()}
       </p>
-      <p className="text-[10px] text-gray-500 dark:text-gray-600 font-mono">{BUILD_ID}</p>
+      <p className="text-[10px] text-gray-500 dark:text-gray-400 font-mono">{BUILD_ID}</p>
 
       {updateAvailable ? (
         <button

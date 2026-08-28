@@ -93,7 +93,7 @@ export default function Login() {
         <p className="mt-6 text-xs text-gray-500 dark:text-gray-400">
           Private app — only accessible to authorized accounts.
         </p>
-        <p className="mt-2 text-[10px] text-gray-500 dark:text-gray-600">{VERSION_LABEL}</p>
+        <p className="mt-2 text-[10px] text-gray-500 dark:text-gray-400">{VERSION_LABEL}</p>
       </div>
     </div>
   );
