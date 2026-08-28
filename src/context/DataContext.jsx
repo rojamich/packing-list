@@ -25,7 +25,16 @@ export function DataProvider({ children }) {
   const [itemsLoading, setItemsLoading]       = useState(true);
   const [bagsLoading, setBagsLoading]         = useState(true);
   const [settingsLoading, setSettingsLoading] = useState(true);
-  const [error, setError]                     = useState(null);
+
+  // Errors are tracked per listener and cleared when that listener recovers.
+  // Previously one shared `error` was set and never unset, so a single blip on
+  // any collection blanked the whole app until a manual reload.
+  const [errors, setErrors] = useState({ items: null, bags: null, settings: null });
+
+  const failed  = useCallback((src) => (e) => setErrors((p) => ({ ...p, [src]: e })), []);
+  // Only touch state when there is something to clear, so a healthy snapshot
+  // doesn't trigger a re-render on every update.
+  const healthy = useCallback((src) => setErrors((p) => (p[src] ? { ...p, [src]: null } : p)), []);
 
   useEffect(() => {
     const unsubItems = onSnapshot(
@@ -33,8 +42,9 @@ export function DataProvider({ children }) {
       (snap) => {
         setItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort(byOrderThenName));
         setItemsLoading(false);
+        healthy('items');
       },
-      (e) => { setError(e); setItemsLoading(false); },
+      (e) => { failed('items')(e); setItemsLoading(false); },
     );
 
     const unsubBags = onSnapshot(
@@ -45,18 +55,33 @@ export function DataProvider({ children }) {
                             String(a.name || '').localeCompare(String(b.name || '')));
         setBags(data);
         setBagsLoading(false);
+        healthy('bags');
       },
-      (e) => { setError(e); setBagsLoading(false); },
+      (e) => { failed('bags')(e); setBagsLoading(false); },
     );
 
     const unsubSettings = onSnapshot(
       doc(db, 'settings', 'app'),
-      (snap) => { setSettings(snap.exists() ? snap.data() : {}); setSettingsLoading(false); },
-      (e) => { setError(e); setSettingsLoading(false); },
+      (snap) => {
+        setSettings(snap.exists() ? snap.data() : {});
+        setSettingsLoading(false);
+        healthy('settings');
+      },
+      (e) => { failed('settings')(e); setSettingsLoading(false); },
     );
 
     return () => { unsubItems(); unsubBags(); unsubSettings(); };
-  }, []);
+  }, [failed, healthy]);
+
+  // A rules rejection means there is genuinely nothing to show — that one still
+  // takes over the screen. Anything else leaves the app usable.
+  const accessDenied = Object.values(errors).some(
+    (e) => e?.code === 'permission-denied' || e?.code === 'unauthenticated',
+  );
+
+  // `settings` only carries exchange rates and a currency preference, so it must
+  // never gate the gear list.
+  const error = errors.items || errors.bags || null;
 
   // ── Exchange rates ──────────────────────────────────────────────
   // Refreshed at most once a day and written back to Firestore, so both phones
@@ -102,6 +127,8 @@ export function DataProvider({ children }) {
     loading: itemsLoading || bagsLoading,
     settingsLoading,
     error,
+    errors,
+    accessDenied,
     rates,
     ratesAreLive,
     ratesUpdatedAt: settings?.ratesUpdatedAt || null,
@@ -109,7 +136,8 @@ export function DataProvider({ children }) {
     activeCurrency,
     setActiveCurrency,
   }), [items, bags, settings, itemsLoading, bagsLoading, settingsLoading, error,
-       rates, ratesAreLive, refreshRates, activeCurrency, setActiveCurrency]);
+       errors, accessDenied, rates, ratesAreLive, refreshRates, activeCurrency,
+       setActiveCurrency]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }
