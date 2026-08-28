@@ -98,7 +98,7 @@ export default function ItemPricing({
       <div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-500 dark:text-gray-400 mb-1">
+            <label className="flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
               <Tag size={13} /> Target (USD)
             </label>
             <input
@@ -113,7 +113,7 @@ export default function ItemPricing({
             />
           </div>
           <div>
-            <label className="flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-500 dark:text-gray-400 mb-1">
+            <label className="flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
               <Timer size={13} /> Wait for (USD)
             </label>
             <input
@@ -237,7 +237,7 @@ export default function ItemPricing({
                     <button
                       type="button"
                       onClick={() => setShowLog(false)}
-                      className="px-4 py-2.5 rounded-lg text-sm font-medium text-gray-500 border border-gray-200 dark:border-gray-700"
+                      className="px-4 py-2.5 rounded-lg text-sm font-medium text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700"
                     >
                       Cancel
                     </button>
@@ -261,7 +261,7 @@ export default function ItemPricing({
       {/* ── Purchase history ── */}
       <div>
         <div className="flex items-center justify-between mb-1">
-          <label className="flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-500 dark:text-gray-400">
+          <label className="flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400">
             <Receipt size={13} /> Purchase History
           </label>
           {purchases.length > 1 && (
@@ -303,7 +303,7 @@ export default function ItemPricing({
                     type="button"
                     onClick={() => onRemovePurchase(p.id)}
                     aria-label="Delete this purchase"
-                    className="p-1.5 text-gray-500 hover:text-red-500 dark:text-gray-600 dark:hover:text-red-400"
+                    className="p-1.5 text-gray-500 hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400"
                   >
                     <Trash2 size={14} />
                   </button>

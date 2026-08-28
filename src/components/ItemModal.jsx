@@ -332,7 +332,7 @@ export default function ItemModal({ item, onClose }) {
 function Field({ label, children }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-500 dark:text-gray-500 dark:text-gray-400 mb-1">{label}</label>
+      <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">{label}</label>
       {children}
     </div>
   );

@@ -70,13 +70,13 @@ function NoAccessScreen({ user }) {
         <h1 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
           This account doesn’t have access
         </h1>
-        <p className="text-sm text-gray-500 dark:text-gray-500 dark:text-gray-400 mb-1">
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
           Signed in as
         </p>
         <p className="text-sm font-medium text-gray-900 dark:text-white break-all mb-4">
           {user?.email || 'unknown account'}
         </p>
-        <p className="text-sm text-gray-500 dark:text-gray-500 dark:text-gray-400 leading-relaxed mb-5">
+        <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed mb-5">
           The data is shared, not per-account — this address just isn’t on the allowlist in
           the Firestore security rules yet. Add it to <code className="font-mono text-xs">firestore.rules</code>{' '}
           and redeploy, then sign in again.
@@ -91,7 +91,7 @@ function NoAccessScreen({ user }) {
           </button>
           <button
             onClick={() => signOut(auth)}
-            className="w-full py-2.5 rounded-xl font-medium text-sm text-gray-500 border border-gray-200 dark:border-gray-700"
+            className="w-full py-2.5 rounded-xl font-medium text-sm text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700"
           >
             Sign in with a different account
           </button>

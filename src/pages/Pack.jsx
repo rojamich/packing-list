@@ -114,7 +114,7 @@ export default function Pack() {
             className={`flex items-center gap-1.5 text-sm disabled:opacity-40 ${
               confirmReset
                 ? 'text-red-600 dark:text-red-400 font-semibold'
-                : 'text-gray-500 dark:text-gray-500 dark:text-gray-400 active:text-gray-700'
+                : 'text-gray-500 dark:text-gray-400 active:text-gray-700'
             }`}
           >
             <RotateCcw size={14} />
@@ -152,7 +152,7 @@ export default function Pack() {
 
         <div className="bg-white dark:bg-gray-900 rounded-2xl p-3 shadow-sm">
           <div className="flex justify-between text-sm mb-2">
-            <span className="text-gray-500 dark:text-gray-500 dark:text-gray-400">
+            <span className="text-gray-500 dark:text-gray-400">
               {stats.packed > 0 && <span className="text-green-600 font-medium">{stats.packed} packed</span>}
               {stats.packed > 0 && stats.worn > 0 && <span className="text-gray-500 dark:text-gray-600"> · </span>}
               {stats.worn > 0 && <span className="text-indigo-500 font-medium">{stats.worn} worn</span>}
@@ -312,7 +312,7 @@ function PackRow({ item, dragging, lifted, rowProps, onEdit, onSetPack }) {
             ? 'text-gray-900 dark:text-white'
             : state.status === 'partial'
               ? 'text-gray-700 dark:text-gray-200'
-              : 'text-gray-500 dark:text-gray-500 line-through'
+              : 'text-gray-500 dark:text-gray-400 line-through'
         }`}>
           {item.name}
           {multi && <span className="text-gray-500 dark:text-gray-400 font-normal no-underline"> ×{state.qty}</span>}
@@ -333,7 +333,7 @@ function PackRow({ item, dragging, lifted, rowProps, onEdit, onSetPack }) {
           >
             <Minus size={14} />
           </StepButton>
-          <span className="text-xs font-semibold tabular-nums text-gray-500 dark:text-gray-500 dark:text-gray-400 w-8 text-center">
+          <span className="text-xs font-semibold tabular-nums text-gray-500 dark:text-gray-400 w-8 text-center">
             {state.packedQty}/{state.qty}
           </span>
           <StepButton
@@ -356,7 +356,7 @@ function PackRow({ item, dragging, lifted, rowProps, onEdit, onSetPack }) {
         data-no-drag
         onClick={(e) => { e.stopPropagation(); onEdit(item); }}
         aria-label={`Edit ${item.name}`}
-        className="flex-shrink-0 p-1.5 -mr-1 text-gray-500 hover:text-blue-600 dark:text-gray-600 dark:hover:text-blue-400"
+        className="flex-shrink-0 p-1.5 -mr-1 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400"
       >
         <Pencil size={15} />
       </button>
@@ -376,7 +376,7 @@ function StepButton({ children, label, disabled, onClick }) {
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="w-7 h-7 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-500 dark:text-gray-400 disabled:opacity-30 active:bg-gray-100 dark:active:bg-gray-800"
+      className="w-7 h-7 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 disabled:opacity-30 active:bg-gray-100 dark:active:bg-gray-800"
     >
       {children}
     </button>

@@ -99,7 +99,7 @@ export default function Replace() {
         {actionable.length > 0 && budget.total > 0 && (
           <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm">
             <div className="flex items-baseline justify-between">
-              <span className="text-sm text-gray-500 dark:text-gray-500 dark:text-gray-400">Cost to replace all flagged</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400">Cost to replace all flagged</span>
               <span className="text-2xl font-bold text-gray-900 dark:text-white">
                 {formatUSD(budget.total, { round: true })}
               </span>

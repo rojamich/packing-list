@@ -127,7 +127,7 @@ export default function BagModal({ bag, itemCount = 0, onClose }) {
 
           {!isNew && itemCount > 0 && (
             <div className="bg-gray-50 dark:bg-gray-800 rounded-xl px-3 py-2.5">
-              <p className="text-sm text-gray-500 dark:text-gray-500 dark:text-gray-400">{itemCount} item{itemCount !== 1 ? 's' : ''} in this bag</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{itemCount} item{itemCount !== 1 ? 's' : ''} in this bag</p>
             </div>
           )}
 
@@ -186,7 +186,7 @@ export default function BagModal({ bag, itemCount = 0, onClose }) {
 function Field({ label, children }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-500 dark:text-gray-500 dark:text-gray-400 mb-1">{label}</label>
+      <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">{label}</label>
       {children}
     </div>
   );

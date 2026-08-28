@@ -210,7 +210,7 @@ export default function Dashboard() {
 
           <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm">
             <div className="flex justify-between text-sm mb-2">
-              <span className="text-gray-500 dark:text-gray-500 dark:text-gray-400">Packing progress</span>
+              <span className="text-gray-500 dark:text-gray-400">Packing progress</span>
               <span className="font-medium text-gray-900 dark:text-white">
                 {stats.packing.done} / {stats.packing.total}
               </span>
@@ -308,7 +308,7 @@ function StatCard({ label, value, color }) {
   return (
     <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm">
       <div className={`text-3xl font-bold ${color}`}>{value}</div>
-      <div className="text-sm text-gray-500 dark:text-gray-500 dark:text-gray-400 mt-1">{label}</div>
+      <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">{label}</div>
     </div>
   );
 }

@@ -147,7 +147,7 @@ export default function Data() {
             <>
               <button
                 onClick={() => fileInput.current?.click()}
-                className="w-full border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl py-6 text-sm font-medium text-gray-500 dark:text-gray-500 dark:text-gray-400 active:bg-gray-50 dark:active:bg-gray-800"
+                className="w-full border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl py-6 text-sm font-medium text-gray-500 dark:text-gray-400 active:bg-gray-50 dark:active:bg-gray-800"
               >
                 Choose a .json or .csv file
               </button>
@@ -172,7 +172,7 @@ export default function Data() {
 
           {parsed && plan && (
             <div className="space-y-4">
-              <p className="text-sm text-gray-500 dark:text-gray-500 dark:text-gray-400 truncate">
+              <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
                 <span className="font-medium text-gray-900 dark:text-white">{fileName}</span>
                 {' · '}{parsed.items.length} item rows, {parsed.bags.length} bag rows
               </p>
@@ -199,7 +199,7 @@ export default function Data() {
 
               {/* What will happen */}
               <div className="border border-gray-100 dark:border-gray-800 rounded-xl overflow-hidden">
-                <div className="px-3 py-2 bg-gray-50 dark:bg-gray-800/50 text-xs font-semibold text-gray-500 dark:text-gray-500 dark:text-gray-400">
+                <div className="px-3 py-2 bg-gray-50 dark:bg-gray-800/50 text-xs font-semibold text-gray-500 dark:text-gray-400">
                   This will make {plan.totalWrites} change{plan.totalWrites === 1 ? '' : 's'}
                 </div>
                 <div className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -279,7 +279,7 @@ export default function Data() {
                 <button
                   onClick={cancel}
                   disabled={applying}
-                  className="px-4 py-3 rounded-xl font-medium text-gray-500 border border-gray-200 dark:border-gray-700"
+                  className="px-4 py-3 rounded-xl font-medium text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700"
                 >
                   Cancel
                 </button>
