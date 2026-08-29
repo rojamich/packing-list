@@ -34,51 +34,48 @@ service cloud.firestore {
     // so a missing `notes` or `waitPrice` can never make an item unwritable.
     // Only `name` is genuinely required, because every view renders it.
 
-    function str(d, k, max) {
-      return !(k in d) || d[k] == null || (d[k] is string && d[k].size() <= max);
-    }
+    // Each check is "absent, or null, or the right type". The `in` test comes
+    // first and short-circuits, so a field the document doesn't have is never
+    // read — reading an absent property is an error in rules, not a false.
+    //
+    // Written out longhand with plain dot access rather than a d[key] helper:
+    // it is more lines, but every line is verifiable by reading it, which
+    // matters for the one thing standing between a bug and the whole dataset.
 
-    function num(d, k) {
-      return !(k in d) || d[k] == null || d[k] is number;
-    }
-
-    function boolean(d, k) {
-      return !(k in d) || d[k] == null || d[k] is bool;
-    }
-
-    function list(d, k, max) {
-      return !(k in d) || d[k] == null || (d[k] is list && d[k].size() <= max);
-    }
+    function optStr(v, max)  { return v == null || (v is string && v.size() <= max); }
+    function optNum(v)       { return v == null || v is number; }
+    function optBool(v)      { return v == null || v is bool; }
+    function optList(v, max) { return v == null || (v is list && v.size() <= max); }
 
     function validItem(d) {
       return d.name is string && d.name.size() > 0 && d.name.size() <= 200
           && d.keys().size() <= 50
-          && str(d, 'category', 120)
-          && str(d, 'person', 20)
-          && str(d, 'status', 20)
-          && str(d, 'inBag', 120)
-          && str(d, 'condition', 20)
-          && str(d, 'packStatus', 20)
-          && str(d, 'purchaseDate', 40)
-          && str(d, 'notes', 4000)
-          && num(d, 'qty')
-          && num(d, 'packedQty')
-          && num(d, 'estLifeMonths')
-          && num(d, 'targetPrice')
-          && num(d, 'waitPrice')
-          && num(d, 'sortOrder')
-          && num(d, 'cost')
-          && boolean(d, 'worn')
-          && boolean(d, 'packed')
-          && list(d, 'purchases', 500);
+          && (!('category'      in d) || optStr(d.category, 120))
+          && (!('person'        in d) || optStr(d.person, 20))
+          && (!('status'        in d) || optStr(d.status, 20))
+          && (!('inBag'         in d) || optStr(d.inBag, 120))
+          && (!('condition'     in d) || optStr(d.condition, 20))
+          && (!('packStatus'    in d) || optStr(d.packStatus, 20))
+          && (!('purchaseDate'  in d) || optStr(d.purchaseDate, 40))
+          && (!('notes'         in d) || optStr(d.notes, 4000))
+          && (!('qty'           in d) || optNum(d.qty))
+          && (!('packedQty'     in d) || optNum(d.packedQty))
+          && (!('estLifeMonths' in d) || optNum(d.estLifeMonths))
+          && (!('targetPrice'   in d) || optNum(d.targetPrice))
+          && (!('waitPrice'     in d) || optNum(d.waitPrice))
+          && (!('sortOrder'     in d) || optNum(d.sortOrder))
+          && (!('cost'          in d) || optNum(d.cost))
+          && (!('worn'          in d) || optBool(d.worn))
+          && (!('packed'        in d) || optBool(d.packed))
+          && (!('purchases'     in d) || optList(d.purchases, 500));
     }
 
     function validBag(d) {
       return d.name is string && d.name.size() > 0 && d.name.size() <= 120
           && d.keys().size() <= 20
-          && str(d, 'owner', 20)
-          && str(d, 'emoji', 16)
-          && num(d, 'order');
+          && (!('owner' in d) || optStr(d.owner, 20))
+          && (!('emoji' in d) || optStr(d.emoji, 16))
+          && (!('order' in d) || optNum(d.order));
     }
 
     // settings/app holds shared exchange rates and a currency preference, and
@@ -86,9 +83,9 @@ service cloud.firestore {
     // the document.
     function validSettings(d) {
       return d.keys().size() <= 20
-          && str(d, 'activeCurrency', 10)
-          && str(d, 'ratesSource', 20)
-          && num(d, 'ratesUpdatedAt')
+          && (!('activeCurrency' in d) || optStr(d.activeCurrency, 10))
+          && (!('ratesSource'    in d) || optStr(d.ratesSource, 20))
+          && (!('ratesUpdatedAt' in d) || optNum(d.ratesUpdatedAt))
           && (!('rates' in d) || d.rates == null ||
               (d.rates is map && d.rates.keys().size() <= 200));
     }
