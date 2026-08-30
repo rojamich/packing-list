@@ -23,7 +23,7 @@ export const SCHEMA_VERSION = 1;
 // Everything that defines an item, minus Firestore's server timestamps.
 const ITEM_FIELDS = [
   'name', 'category', 'person', 'qty', 'status', 'inBag', 'condition',
-  'estLifeMonths', 'targetPrice', 'waitPrice', 'notes', 'sortOrder', 'packedQty', 'worn',
+  'estLifeMonths', 'targetPrice', 'waitPrice', 'notes', 'sortOrder', 'packedQty', 'wornQty', 'worn',
 ];
 
 const BAG_FIELDS = ['name', 'owner', 'emoji', 'order'];
@@ -281,6 +281,7 @@ function normalizeJsonItem(raw) {
     notes: String(raw.notes ?? ''),
     sortOrder: num(raw.sortOrder, null),
     packedQty: int(raw.packedQty, 0),
+    wornQty: Number.isFinite(Number(raw.wornQty)) ? int(raw.wornQty, 0) : (bool(raw.worn) ? int(raw.qty, 1) : 0),
     worn: bool(raw.worn),
     purchases: Array.isArray(raw.purchases) ? raw.purchases : [],
   };

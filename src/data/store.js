@@ -7,7 +7,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { SEED_ITEMS, SEED_BAGS } from './seedData';
-import { packFields, itemQty } from '../lib/packing';
+import { packFields, itemQty, getPackState } from '../lib/packing';
 import { toDateInput } from '../lib/dates';
 
 export const SETTINGS_DOC = doc(db, 'settings', 'app');
@@ -23,7 +23,7 @@ export async function addItem(data) {
   return addDoc(collection(db, 'items'), {
     ...data,
     qty,
-    ...packFields(qty, 0, false),
+    ...packFields(qty, 0, 0),
     purchases: data.purchases || [],
     targetPrice: data.targetPrice ?? null,
     waitPrice: data.waitPrice ?? null,
@@ -47,10 +47,10 @@ export async function setPackState(id, fields) {
 }
 
 export async function resetAllPacked(items) {
-  const targets = items.filter((i) => i.packedQty > 0 || i.worn || i.packed || i.packStatus === 'packed' || i.packStatus === 'worn');
+  const targets = items.filter((i) => getPackState(i).doneQty > 0);
   if (targets.length === 0) return;
   await commitInChunks(targets, (batch, item) => {
-    batch.update(doc(db, 'items', item.id), packFields(itemQty(item), 0, false));
+    batch.update(doc(db, 'items', item.id), packFields(itemQty(item), 0, 0));
   });
 }
 
@@ -179,7 +179,7 @@ export async function seedDatabase() {
     batch.set(doc(collection(db, 'items')), {
       ...item,
       qty,
-      ...packFields(qty, 0, false),
+      ...packFields(qty, 0, 0),
       purchases: [],
       purchaseDate: null,
       cost: null,
@@ -232,7 +232,7 @@ export async function applyImportPlan(plan) {
         const purchases = buildPurchases(op.item, []);
         batch.set(doc(collection(db, 'items')), {
           ...itemPayload(op.item, qty),
-          ...packFields(qty, op.item.packedQty ?? 0, op.item.worn ?? false),
+          ...packFields(qty, op.item.packedQty ?? 0, importedWornQty(op.item, qty)),
           ...purchaseMirrors(purchases),
           sortOrder: op.item.sortOrder ?? (i + 1) * ORDER_STEP,
           createdAt: serverTimestamp(),
@@ -250,8 +250,8 @@ export async function applyImportPlan(plan) {
 
         // A CSV has no pack columns; leave packing state alone unless the file
         // actually carried it (a JSON backup does).
-        if (op.item.packedQty !== undefined || op.item.worn !== undefined) {
-          Object.assign(payload, packFields(qty, op.item.packedQty ?? 0, op.item.worn ?? false));
+        if (op.item.packedQty !== undefined || op.item.wornQty !== undefined || op.item.worn !== undefined) {
+          Object.assign(payload, packFields(qty, op.item.packedQty ?? 0, importedWornQty(op.item, qty)));
         }
         if (purchases) Object.assign(payload, purchaseMirrors(purchases));
 
@@ -325,6 +325,16 @@ function purchaseMirrors(purchases) {
     purchaseDate: latest?.date ?? null,
     cost: latest?.amountUSD ?? null,
   };
+}
+
+/**
+ * A backup may carry `wornQty`, or only the old whole-item `worn` flag, in
+ * which case worn meant all of them.
+ */
+function importedWornQty(item, qty) {
+  const n = Number(item.wornQty);
+  if (Number.isFinite(n)) return n;
+  return item.worn ? qty : 0;
 }
 
 // ── Batching ──────────────────────────────────────────────────────

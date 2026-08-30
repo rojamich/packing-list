@@ -103,8 +103,32 @@ test('regression: rate feed is checked before it reprices everything', async () 
 // ── packing ───────────────────────────────────────────────────────
 
 test('packing counts units, not rows', () => {
-  const totals = packTotals([{ qty: 3, packedQty: 1 }, { qty: 2, worn: true }]);
+  const totals = packTotals([{ qty: 3, packedQty: 1 }, { qty: 2, wornQty: 2 }]);
   assert.deepEqual(totals, { total: 5, packed: 1, worn: 2, done: 3 });
+});
+
+test('packed and worn are independent counts on the same item', () => {
+  // 6 socks: 4 in the bag, 1 on your feet, 1 still in the wash.
+  const s = getPackState({ qty: 6, packedQty: 4, wornQty: 1 });
+  assert.equal(s.packedQty, 4);
+  assert.equal(s.wornQty, 1);
+  assert.equal(s.doneQty, 5);
+  assert.equal(s.remaining, 1);
+  assert.equal(s.status, 'partial');
+});
+
+test('an item split between packed and worn reads as done', () => {
+  const s = getPackState({ qty: 5, packedQty: 4, wornQty: 1 });
+  assert.equal(s.remaining, 0);
+  assert.equal(s.status, 'mixed', 'every unit accounted for, just not all the same way');
+});
+
+test('worn never double-counts against packed', () => {
+  // A unit on your body cannot also be in the bag; worn wins the clamp.
+  const s = getPackState({ qty: 3, packedQty: 3, wornQty: 2 });
+  assert.equal(s.wornQty, 2);
+  assert.equal(s.packedQty, 1);
+  assert.equal(s.doneQty, 3);
 });
 
 test('legacy pack fields still read correctly', () => {
@@ -114,27 +138,72 @@ test('legacy pack fields still read correctly', () => {
   assert.equal(itemQty({ qty: 0 }), 1, 'qty is at least 1');
 });
 
-test('writes keep the legacy mirrors in sync', () => {
-  const f = packFields(3, 3, false);
-  assert.equal(f.packed, true);
-  assert.equal(f.packStatus, 'packed');
-  assert.equal(packFields(3, 1, false).packStatus, 'unpacked', 'partial reads as unpacked to old clients');
-  assert.equal(packFields(3, 2, true).packedQty, 0, 'worn clears the packed count');
+test('the old whole-item worn flag means all of them', () => {
+  const s = getPackState({ qty: 4, worn: true });
+  assert.equal(s.wornQty, 4);
+  assert.equal(s.status, 'worn');
 });
 
-test('tapping cycles unpacked -> packed -> worn -> unpacked', () => {
-  const item = { qty: 2, packedQty: 0 };
+test('writes keep the legacy mirrors in sync', () => {
+  const all = packFields(3, 3, 0);
+  assert.equal(all.packed, true);
+  assert.equal(all.packStatus, 'packed');
+
+  const worn = packFields(3, 0, 3);
+  assert.equal(worn.worn, true);
+  assert.equal(worn.packStatus, 'worn');
+
+  // Anything split is reported to old readers as unpacked rather than as a
+  // half-truth about the whole item.
+  assert.equal(packFields(3, 1, 0).packStatus, 'unpacked');
+  assert.equal(packFields(3, 2, 1).packStatus, 'unpacked');
+  assert.equal(packFields(3, 2, 1).packed, false);
+  assert.equal(packFields(3, 2, 1).worn, false);
+});
+
+test('tapping cycles unfinished -> packed -> worn -> clear', () => {
+  const item = { qty: 2, packedQty: 0, wornQty: 0 };
   const packed = cyclePack(item);
   assert.equal(packed.packedQty, 2);
   const worn = cyclePack({ ...item, ...packed });
-  assert.equal(worn.worn, true);
-  assert.equal(cyclePack({ ...item, ...worn }).packedQty, 0);
+  assert.equal(worn.wornQty, 2);
+  assert.equal(worn.packedQty, 0);
+  const cleared = cyclePack({ ...item, ...worn });
+  assert.equal(cleared.packedQty, 0);
+  assert.equal(cleared.wornQty, 0);
 });
 
-test('the stepper clamps and clears worn', () => {
+test('a mixed item cycles to fully packed, not backwards', () => {
+  const mixed = { qty: 5, packedQty: 4, wornQty: 1 };
+  assert.equal(cyclePack(mixed).packedQty, 5);
+  assert.equal(cyclePack(mixed).wornQty, 0);
+});
+
+test('the packed stepper clamps against worn, not just qty', () => {
   assert.equal(stepPack({ qty: 3, packedQty: 3 }, 1).packedQty, 3, 'cannot exceed qty');
   assert.equal(stepPack({ qty: 3, packedQty: 0 }, -1).packedQty, 0, 'cannot go negative');
-  assert.equal(stepPack({ qty: 3, worn: true }, -1).worn, false);
+  // 1 worn leaves room for 2 packed, not 3.
+  assert.equal(stepPack({ qty: 3, packedQty: 2, wornQty: 1 }, 1).packedQty, 2);
+});
+
+test('wearing one takes it out of the bag when nothing is spare', () => {
+  // 3 of 3 packed, then you put one on: packed drops to 2.
+  const after = stepPack({ qty: 3, packedQty: 3, wornQty: 0 }, 1, 'worn');
+  assert.equal(after.wornQty, 1);
+  assert.equal(after.packedQty, 2);
+});
+
+test('wearing one takes from the spares first', () => {
+  // 1 of 3 packed, 2 spare: wearing one leaves the packed count alone.
+  const after = stepPack({ qty: 3, packedQty: 1, wornQty: 0 }, 1, 'worn');
+  assert.equal(after.wornQty, 1);
+  assert.equal(after.packedQty, 1);
+});
+
+test('stepping packed no longer wipes the worn count', () => {
+  const after = stepPack({ qty: 4, packedQty: 2, wornQty: 1 }, -1);
+  assert.equal(after.packedQty, 1);
+  assert.equal(after.wornQty, 1, 'worn is independent now');
 });
 
 // ── dates ─────────────────────────────────────────────────────────
