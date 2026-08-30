@@ -17,6 +17,7 @@ import {
 import { getPackState, cyclePack, stepPack, packFields, packTotals, itemQty } from '../src/lib/packing.js';
 import { parseDate, toDateInput, addMonths, replaceByDate, lastPurchase } from '../src/lib/dates.js';
 import { parseCSV, toCSV, itemsToCSV, parseImportFile, buildPlan } from '../src/lib/transfer.js';
+import { replaceState, replaceFields, getUrgency, replacementCost } from '../src/lib/replace.js';
 
 // ── money: deal verdicts ──────────────────────────────────────────
 
@@ -204,6 +205,85 @@ test('stepping packed no longer wipes the worn count', () => {
   const after = stepPack({ qty: 4, packedQty: 2, wornQty: 1 }, -1);
   assert.equal(after.packedQty, 1);
   assert.equal(after.wornQty, 1, 'worn is independent now');
+});
+
+// ── replacement ───────────────────────────────────
+
+test('part of a set can need replacing', () => {
+  // Two pairs of shorts, one of them shot.
+  const rs = replaceState({ qty: 2, replaceQty: 1 });
+  assert.equal(rs.replaceQty, 1);
+  assert.equal(rs.keepQty, 1);
+  assert.equal(rs.some, true);
+  assert.equal(rs.all, false);
+});
+
+test('the old whole-item replace status means all of them', () => {
+  const rs = replaceState({ qty: 3, status: 'replace' });
+  assert.equal(rs.replaceQty, 3);
+  assert.equal(rs.all, true);
+});
+
+test('replace count is clamped to what you own', () => {
+  assert.equal(replaceState({ qty: 2, replaceQty: 9 }).replaceQty, 2);
+  assert.equal(replaceState({ qty: 2, replaceQty: -1 }).replaceQty, 0);
+  assert.equal(replaceState({ qty: 2 }).replaceQty, 0, 'nothing flagged by default');
+});
+
+test('status mirrors the count without clobbering "buy"', () => {
+  assert.equal(replaceFields({ qty: 2 }, 2).status, 'replace', 'whole set');
+  assert.equal(replaceFields({ qty: 2 }, 1).status, 'have', 'one still good');
+  assert.equal(replaceFields({ qty: 2 }, 0).status, 'have');
+  // "buy" is about not owning it yet, which the replacement count says nothing
+  // about, so it must survive.
+  assert.equal(replaceFields({ qty: 2, status: 'buy' }, 1).status, 'buy');
+});
+
+test('anything flagged jumps the replacement queue', () => {
+  assert.equal(getUrgency({ qty: 2, replaceQty: 1 }), 'now');
+  assert.equal(getUrgency({ qty: 1, status: 'replace' }), 'now');
+  assert.equal(getUrgency({ qty: 1 }), null, 'no purchase, no due date, no opinion');
+});
+
+test('urgency otherwise follows the estimated life', () => {
+  const ago = (months) => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - months);
+    return toDateInput(d);
+  };
+  const item = (monthsAgo, life) => ({
+    qty: 1, estLifeMonths: life,
+    purchases: [{ date: ago(monthsAgo), amountUSD: 10 }],
+  });
+  assert.equal(getUrgency(item(14, 12)), 'overdue');
+  assert.equal(getUrgency(item(11, 12)), 'soon');
+  assert.equal(getUrgency(item(8, 12)), 'watch');
+  assert.equal(getUrgency(item(1, 12)), 'ok');
+});
+
+test('replacement cost prices the flagged units, not the whole line', () => {
+  // Two pairs of shorts at $45, one worn out: $45, not $90.
+  const one = replacementCost({ qty: 2, replaceQty: 1, targetPrice: 45 });
+  assert.deepEqual(one, { units: 1, usd: 45, basis: 'target' });
+
+  const both = replacementCost({ qty: 2, replaceQty: 2, targetPrice: 45 });
+  assert.equal(both.usd, 90);
+});
+
+test('replacement cost falls back to what was paid, and says so', () => {
+  const paid = replacementCost({ qty: 1, replaceQty: 1 }, 38);
+  assert.deepEqual(paid, { units: 1, usd: 38, basis: 'paid' });
+
+  const unknown = replacementCost({ qty: 1, replaceQty: 1 });
+  assert.equal(unknown.basis, 'unknown', 'counted separately so the total is never quietly wrong');
+  assert.equal(unknown.usd, 0);
+});
+
+test('an item flagged only by date prices the whole line', () => {
+  // Nothing marked worn out yet, so replacing it means replacing all of them.
+  const cost = replacementCost({ qty: 3, targetPrice: 20 });
+  assert.equal(cost.units, 3);
+  assert.equal(cost.usd, 60);
 });
 
 // ── dates ─────────────────────────────────────────────────────────

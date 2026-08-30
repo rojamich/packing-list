@@ -2,19 +2,9 @@ import { useMemo, useState } from 'react';
 import { Tag, AlertCircle } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import ItemModal from '../components/ItemModal';
-import { replaceByDate, daysUntil, formatMonthYear, lastPurchase, DEFAULT_LIFE_MONTHS } from '../lib/dates';
+import { replaceByDate, formatMonthYear, lastPurchase, DEFAULT_LIFE_MONTHS } from '../lib/dates';
+import { getUrgency, replaceState, replacementCost } from '../lib/replace';
 import { formatUSD, formatLocal, fromUSD, BASE_CURRENCY, currencyMeta } from '../lib/money';
-
-function getUrgency(item) {
-  if (item.status === 'replace') return 'now';
-  const rb = replaceByDate(item);
-  if (!rb) return null;
-  const left = daysUntil(rb);
-  if (left <= 0)  return 'overdue';
-  if (left <= 90) return 'soon';
-  if (left <= 180) return 'watch';
-  return 'ok';
-}
 
 const URGENCY_CONFIG = {
   now:     { label: 'Replace Now', bg: 'bg-red-100 dark:bg-red-900/30',       text: 'text-red-700 dark:text-red-400',       dot: 'bg-red-500',    order: 0 },
@@ -43,16 +33,15 @@ export default function Replace() {
   // What it costs to replace everything currently flagged. Items without a
   // target price fall back to what was last paid, and are counted separately
   // so the number is never quietly wrong.
+  // Prices only the units actually flagged. Two pairs of shorts with one worn
+  // out costs one pair, not two.
   const budget = useMemo(() => {
     let known = 0, guessed = 0, unknown = 0;
     actionable.forEach((item) => {
-      // Target prices are per unit, so replacing 6 pairs of socks costs 6×.
-      const qty = Number(item.qty) || 1;
-      const target = Number(item.targetPrice);
-      if (Number.isFinite(target) && target > 0) { known += target * qty; return; }
-      const paid = Number(lastPurchase(item)?.amountUSD);
-      if (Number.isFinite(paid) && paid > 0) { guessed += paid * qty; return; }
-      unknown += 1;
+      const { usd, basis } = replacementCost(item, lastPurchase(item)?.amountUSD);
+      if (basis === 'target') known += usd;
+      else if (basis === 'paid') guessed += usd;
+      else unknown += 1;
     });
     return { known, guessed, unknown, total: known + guessed };
   }, [actionable]);
@@ -132,6 +121,7 @@ export default function Replace() {
                 const paid = lastPurchase(item);
                 const target = Number(item.targetPrice);
                 const hasTarget = Number.isFinite(target) && target > 0;
+                const rs = replaceState(item);
 
                 return (
                   <button
@@ -144,8 +134,9 @@ export default function Replace() {
                       <div className="text-sm font-medium text-gray-900 dark:text-white truncate">{item.name}</div>
                       <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
                         {item.inBag || 'Unassigned'}
+                        {rs.some && ` · ${rs.replaceQty} of ${rs.qty} worn out`}
                         {rb && ` · Replace by ${rb}`}
-                        {!rb && item.status !== 'replace' && ' · No purchase logged'}
+                        {!rb && !rs.any && ' · No purchase logged'}
                       </div>
                       <div className="text-xs mt-1 flex items-center gap-2 flex-wrap">
                         {hasTarget ? (
@@ -168,7 +159,7 @@ export default function Replace() {
                       </div>
                     </div>
                     <span className={`flex-shrink-0 text-xs px-2 py-1 rounded-full font-medium ${cfg.bg} ${cfg.text}`}>
-                      {cfg.label}
+                      {rs.some ? `Replace ${rs.replaceQty}` : cfg.label}
                     </span>
                   </button>
                 );

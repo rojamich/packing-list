@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Minus, Plus } from 'lucide-react';
+import { replaceState, replaceFields } from '../lib/replace';
 import Sheet from './Sheet';
 import { useData } from '../context/DataContext';
 import { addItem, updateItem, deleteItem, logPurchase, removePurchase, setPurchases } from '../data/store';
@@ -10,7 +12,7 @@ import ItemPricing from './ItemPricing';
 // tripping over `updatedAt`, which our own purchase writes bump too.
 const EDITABLE = [
   'name', 'category', 'person', 'qty', 'status', 'inBag',
-  'condition', 'estLifeMonths', 'targetPrice', 'waitPrice', 'notes',
+  'condition', 'estLifeMonths', 'targetPrice', 'waitPrice', 'notes', 'replaceQty',
 ];
 
 const pickEditable = (it) =>
@@ -61,6 +63,7 @@ export default function ItemModal({ item, onClose }) {
     ...(item || {}),
     targetPrice: item?.targetPrice ?? '',
     waitPrice: item?.waitPrice ?? '',
+    replaceQty: replaceState(item || {}).replaceQty,
   }));
 
   // Purchases logged before a brand-new item exists in Firestore are held here
@@ -97,6 +100,26 @@ export default function ItemModal({ item, onClose }) {
   const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
   const setDirect = (field, value) => setForm((f) => ({ ...f, [field]: value }));
 
+  const qtyNum = itemQty(form);
+  const replaceCount = Math.max(0, Math.min(qtyNum, Number(form.replaceQty) || 0));
+
+  // Status and the per-unit count are two views of the same fact, so moving
+  // either one moves the other rather than letting them drift apart.
+  const setReplaceCount = (n) => {
+    const next = Math.max(0, Math.min(qtyNum, n));
+    setForm((f) => ({
+      ...f,
+      replaceQty: next,
+      status: f.status === 'buy' ? 'buy' : (next === qtyNum && qtyNum > 0 ? 'replace' : 'have'),
+    }));
+  };
+
+  const setStatus = (val) => setForm((f) => ({
+    ...f,
+    status: val,
+    replaceQty: val === 'replace' ? qtyNum : val === 'have' ? 0 : f.replaceQty,
+  }));
+
   function buildData() {
     const target = String(form.targetPrice).trim();
     const wait = String(form.waitPrice).trim();
@@ -106,6 +129,7 @@ export default function ItemModal({ item, onClose }) {
       person: form.person,
       qty: itemQty(form),
       status: form.status,
+      ...replaceFields({ qty: itemQty(form), status: form.status }, form.replaceQty),
       inBag: form.inBag || null,
       condition: form.condition,
       estLifeMonths: Number(form.estLifeMonths) || DEFAULT_LIFE_MONTHS,
@@ -255,13 +279,50 @@ export default function ItemModal({ item, onClose }) {
                   key={val}
                   active={form.status === val}
                   activeClass={`${cls} text-white`}
-                  onClick={() => setDirect('status', val)}
+                  onClick={() => setStatus(val)}
                 >
                   {label}
                 </Choice>
               ))}
             </div>
           </Field>
+
+          {qtyNum > 1 && form.status !== 'buy' && (
+            <Field label="How many need replacing?">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  aria-label="Fewer need replacing"
+                  disabled={replaceCount === 0}
+                  onClick={() => setReplaceCount(replaceCount - 1)}
+                  className="w-9 h-9 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 disabled:opacity-30 active:bg-gray-100 dark:active:bg-gray-800"
+                >
+                  <Minus size={16} />
+                </button>
+                <span className={`text-sm font-semibold tabular-nums w-16 text-center ${
+                  replaceCount > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'
+                }`}>
+                  {replaceCount} of {qtyNum}
+                </span>
+                <button
+                  type="button"
+                  aria-label="More need replacing"
+                  disabled={replaceCount >= qtyNum}
+                  onClick={() => setReplaceCount(replaceCount + 1)}
+                  className="w-9 h-9 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 disabled:opacity-30 active:bg-gray-100 dark:active:bg-gray-800"
+                >
+                  <Plus size={16} />
+                </button>
+                <span className="text-xs text-gray-500 dark:text-gray-400 flex-1">
+                  {replaceCount === 0
+                    ? 'All of them are fine.'
+                    : replaceCount === qtyNum
+                      ? 'The whole set is worn out.'
+                      : `${qtyNum - replaceCount} still good, ${replaceCount} to replace.`}
+                </span>
+              </div>
+            </Field>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <Field label="In Bag">

@@ -3,6 +3,7 @@ import { Search, Plus, ChevronDown, ChevronRight, Tag } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { formatUSD, waitPctOff } from '../lib/money';
 import { lastPurchase } from '../lib/dates';
+import { replaceState } from '../lib/replace';
 import ItemModal from '../components/ItemModal';
 import BagModal  from '../components/BagModal';
 
@@ -165,9 +166,7 @@ export default function Gear() {
                         </div>
                         <PriceLine item={item} />
                       </div>
-                      <span className={`flex-shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[item.status] || ''}`}>
-                        {STATUS_LABELS[item.status] || item.status}
-                      </span>
+                      <StatusPill item={item} />
                     </button>
                   ))}
                 </div>
@@ -227,9 +226,7 @@ export default function Gear() {
                       >
                         <div className={`w-2 h-2 rounded-full flex-shrink-0 ${COND_DOT[item.condition] || 'bg-gray-300'}`} />
                         <span className="flex-1 text-sm text-gray-900 dark:text-white truncate">{item.name}</span>
-                        <span className={`flex-shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[item.status] || ''}`}>
-                          {STATUS_LABELS[item.status] || item.status}
-                        </span>
+                        <StatusPill item={item} />
                       </button>
                     ))}
                   </div>
@@ -268,9 +265,7 @@ export default function Gear() {
                     >
                       <div className={`w-2 h-2 rounded-full flex-shrink-0 ${COND_DOT[item.condition] || 'bg-gray-300'}`} />
                       <span className="flex-1 text-sm text-gray-900 dark:text-white truncate">{item.name}</span>
-                      <span className={`flex-shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[item.status] || ''}`}>
-                        {STATUS_LABELS[item.status] || item.status}
-                      </span>
+                      <StatusPill item={item} />
                     </button>
                   ))}
                 </div>
@@ -308,6 +303,20 @@ export default function Gear() {
       )}
       {addingBag && <BagModal bag={null} itemCount={0} onClose={() => setAddingBag(false)} />}
     </div>
+  );
+}
+
+/** "Have It" is misleading when half the set is worn out. */
+function StatusPill({ item }) {
+  const rs = replaceState(item);
+  const tone = rs.any ? STATUS_COLORS.replace : (STATUS_COLORS[item.status] || '');
+  const label = rs.some ? `Replace ${rs.replaceQty}/${rs.qty}`
+              : rs.all  ? 'Replace'
+              : (STATUS_LABELS[item.status] || item.status);
+  return (
+    <span className={`flex-shrink-0 text-xs px-2 py-0.5 rounded-full font-medium ${tone}`}>
+      {label}
+    </span>
   );
 }
 

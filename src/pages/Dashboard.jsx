@@ -9,6 +9,7 @@ import { APP_VERSION, BUILD_ID, formatBuildDate } from '../lib/version';
 import { seedDatabase } from '../data/store';
 import { packTotals } from '../lib/packing';
 import { replaceByDate, daysUntil } from '../lib/dates';
+import { replaceState } from '../lib/replace';
 import { CURRENCIES, currencyMeta, formatUSD, formatLocal, fromUSD, BASE_CURRENCY } from '../lib/money';
 
 export default function Dashboard() {
@@ -26,7 +27,7 @@ export default function Dashboard() {
 
     const toBuy = items.filter((i) => i.status === 'buy').length;
     const toReplace = items.filter((i) => {
-      if (i.status === 'replace') return true;
+      if (replaceState(i).any) return true;
       const rb = replaceByDate(i);
       return rb && daysUntil(rb) <= 90;
     }).length;

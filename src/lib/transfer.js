@@ -24,6 +24,7 @@ export const SCHEMA_VERSION = 1;
 const ITEM_FIELDS = [
   'name', 'category', 'person', 'qty', 'status', 'inBag', 'condition',
   'estLifeMonths', 'targetPrice', 'waitPrice', 'notes', 'sortOrder', 'packedQty', 'wornQty', 'worn',
+  'replaceQty',
 ];
 
 const BAG_FIELDS = ['name', 'owner', 'emoji', 'order'];
@@ -32,7 +33,7 @@ const BAG_FIELDS = ['name', 'owner', 'emoji', 'order'];
 // nested history, and the last price is what people actually want to edit.
 export const ITEM_CSV_COLUMNS = [
   'id', 'name', 'category', 'person', 'qty', 'status', 'inBag', 'condition',
-  'estLifeMonths', 'targetPrice', 'waitPctOff', 'waitPrice', 'notes',
+  'estLifeMonths', 'replaceQty', 'targetPrice', 'waitPctOff', 'waitPrice', 'notes',
   'lastPaidUSD', 'lastPaidDate', 'lastPaidCurrency', 'lastPaidLocal', 'lastPaidWhere',
 ];
 
@@ -81,6 +82,7 @@ export function itemsToCSV(items) {
       inBag: item.inBag ?? '',
       condition: item.condition ?? '',
       estLifeMonths: item.estLifeMonths ?? '',
+      replaceQty: item.replaceQty ?? '',
       targetPrice: item.targetPrice ?? '',
       // waitPrice is the stored value; the percentage is derived for readability
       // so the sheet shows both without two competing sources of truth.
@@ -276,6 +278,7 @@ function normalizeJsonItem(raw) {
     inBag: raw.inBag ? String(raw.inBag).trim() : null,
     condition: pick(raw.condition, VALID_CONDITION, 'good'),
     estLifeMonths: int(raw.estLifeMonths, 24) || 24,
+    replaceQty: int(raw.replaceQty, 0),
     targetPrice: num(raw.targetPrice, null),
     waitPrice: num(raw.waitPrice, null),
     notes: String(raw.notes ?? ''),
@@ -322,6 +325,7 @@ function normalizeCsvItem(row, present = []) {
   if (has('inBag'))         set('inBag', row.inBag?.trim() ? row.inBag.trim() : null);
   if (has('condition'))     set('condition', pick(row.condition, VALID_CONDITION, 'good'));
   if (has('estLifeMonths')) set('estLifeMonths', int(row.estLifeMonths, 24) || 24);
+  if (has('replaceQty'))    set('replaceQty', int(row.replaceQty, 0));
   if (has('targetPrice'))   set('targetPrice', num(row.targetPrice, null));
   if (has('notes'))         set('notes', String(row.notes ?? ''));
 
@@ -379,7 +383,7 @@ function normalizeCsvBag(row) {
 const key = (name, person) => `${String(name).trim().toLowerCase()}|${String(person || '').toLowerCase()}`;
 
 /** Fields compared when deciding whether a row actually changed. */
-const COMPARED = ['name', 'category', 'person', 'qty', 'status', 'inBag', 'condition', 'estLifeMonths', 'targetPrice', 'waitPrice', 'notes'];
+const COMPARED = ['name', 'category', 'person', 'qty', 'status', 'inBag', 'condition', 'estLifeMonths', 'replaceQty', 'targetPrice', 'waitPrice', 'notes'];
 
 function diffFields(before, after, fields) {
   const changes = [];

@@ -60,6 +60,8 @@ service cloud.firestore {
           && (!('notes'         in d) || optStr(d.notes, 4000))
           && (!('qty'           in d) || optNum(d.qty))
           && (!('packedQty'     in d) || optNum(d.packedQty))
+          && (!('wornQty'       in d) || optNum(d.wornQty))
+          && (!('replaceQty'    in d) || optNum(d.replaceQty))
           && (!('estLifeMonths' in d) || optNum(d.estLifeMonths))
           && (!('targetPrice'   in d) || optNum(d.targetPrice))
           && (!('waitPrice'     in d) || optNum(d.waitPrice))
