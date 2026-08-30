@@ -214,7 +214,9 @@ export default function Pack() {
 
       {!loading && filtered.length > 0 && (
         <p className="text-center text-xs text-gray-500 dark:text-gray-400 mt-4 px-4 leading-relaxed">
-          Tap to pack · tap again for worn on travel day · use −/+ to pack part of a set
+          Tap to pack · tap again for worn on travel day
+          <br />
+          On a set, the two counters split it between bag and body — 4 packed, 1 worn, 1 to go
           <br />
           {filtering
             ? 'Clear filters to drag items into a new order'
@@ -276,110 +278,140 @@ function PackRow({ item, dragging, lifted, rowProps, onEdit, onSetPack }) {
   const state = getPackState(item);
   const multi = state.qty > 1;
 
-  function toggle() {
-    onSetPack(item.id, cyclePack(item));
-  }
+  const toggle = () => onSetPack(item.id, cyclePack(item));
+  const step = (delta, which) => onSetPack(item.id, stepPack(item, delta, which));
 
-  function step(delta) {
-    onSetPack(item.id, stepPack(item, delta));
-  }
+  // What is actually true of this item, in the order you care about it.
+  const parts = [];
+  if (state.packedQty > 0) parts.push(`${state.packedQty} packed`);
+  if (state.wornQty > 0) parts.push(`${state.wornQty} worn`);
+  if (state.remaining > 0 && state.doneQty > 0) parts.push(`${state.remaining} to go`);
 
-  const subline =
-    state.worn                 ? `Wearing all ${state.qty}` :
-    multi                      ? `${state.packedQty} of ${state.qty} packed` :
-                                 null;
+  const subline = multi
+    ? (parts.length ? parts.join(' · ') : null)
+    : state.status === 'worn' ? 'Wearing it' : null;
 
-  // aria-pressed carries the three meaningful states; "mixed" is exactly what a
-  // partially packed set of three t-shirts is.
-  const pressed = state.status === 'unpacked' ? 'false'
-                : state.status === 'partial'  ? 'mixed'
-                :                               'true';
+  const partial = state.remaining > 0 && state.doneQty > 0;
+  const done = state.remaining === 0 && state.doneQty > 0;
+
+  const pressed = state.doneQty === 0 ? 'false' : done ? 'true' : 'mixed';
 
   return (
     <div
       ref={ref}
       {...handlers}
       style={{ touchAction: lifted ? 'none' : 'pan-y' }}
-      className={`flex items-center gap-3 px-4 py-3 transition-shadow select-none ${
+      className={`px-4 py-3 transition-shadow select-none ${
         dragging
           ? 'relative z-20 bg-blue-50 dark:bg-blue-900/30 shadow-lg rounded-xl'
           : 'active:bg-gray-50 dark:active:bg-gray-800'
       }`}
     >
-      {/* The row used to be role="button" with the stepper and edit controls
-          nested inside it, which is invalid: interactive elements can't contain
-          one another, and it left screen readers announcing the row and its
-          children as a single confused control. The toggle is its own button
-          now, still spanning most of the row so the touch target is unchanged.
-          It carries no data-no-drag, so press-and-hold still starts a drag. */}
-      <button
-        type="button"
-        onClick={toggle}
-        aria-pressed={pressed}
-        className="flex-1 flex items-center gap-3 min-w-0 text-left rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-      >
-        <StatusCircle state={state} />
-
-        <span className="flex-1 min-w-0">
-          <span className={`block text-sm font-medium transition-colors truncate ${
-            state.status === 'unpacked'
-              ? 'text-gray-900 dark:text-white'
-              : state.status === 'partial'
-                ? 'text-gray-700 dark:text-gray-200'
-                : 'text-gray-500 dark:text-gray-400 line-through'
-          }`}>
-            {item.name}
-            {multi && <span className="text-gray-500 dark:text-gray-400 font-normal no-underline"> ×{state.qty}</span>}
-          </span>
-          {subline && (
-            <span className={`block text-xs mt-0.5 ${state.status === 'partial' ? 'text-amber-600 dark:text-amber-400 font-medium' : 'text-gray-500 dark:text-gray-400'}`}>
-              {subline}
+      <div className="flex items-center gap-3">
+        {/* The toggle is its own button so the row can carry sibling controls
+            without nesting them. No data-no-drag: press-and-hold still drags. */}
+        <button
+          type="button"
+          onClick={toggle}
+          aria-pressed={pressed}
+          className="flex-1 flex items-center gap-3 min-w-0 text-left rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+        >
+          <StatusCircle state={state} />
+          <span className="flex-1 min-w-0">
+            <span className={`block text-sm font-medium transition-colors truncate ${
+              state.doneQty === 0
+                ? 'text-gray-900 dark:text-white'
+                : done
+                  ? 'text-gray-500 dark:text-gray-400 line-through'
+                  : 'text-gray-700 dark:text-gray-200'
+            }`}>
+              {item.name}
+              {multi && <span className="text-gray-500 dark:text-gray-400 font-normal no-underline"> ×{state.qty}</span>}
             </span>
-          )}
-        </span>
-      </button>
-
-      {multi && !state.worn && (
-        <div data-no-drag className="flex items-center gap-1 flex-shrink-0">
-          <StepButton
-            label={`Unpack one ${item.name}`}
-            disabled={state.packedQty === 0}
-            onClick={() => step(-1)}
-          >
-            <Minus size={14} />
-          </StepButton>
-          <span className="text-xs font-semibold tabular-nums text-gray-500 dark:text-gray-400 w-8 text-center">
-            {state.packedQty}/{state.qty}
+            {subline && (
+              <span className={`block text-xs mt-0.5 no-underline ${
+                partial ? 'text-amber-600 dark:text-amber-400 font-medium' : 'text-gray-500 dark:text-gray-400'
+              }`}>
+                {subline}
+              </span>
+            )}
           </span>
-          <StepButton
-            label={`Pack one ${item.name}`}
-            disabled={state.packedQty >= state.qty}
-            onClick={() => step(1)}
-          >
-            <Plus size={14} />
-          </StepButton>
+        </button>
+
+        {!multi && state.wornQty > 0 && (
+          <span className="flex-shrink-0 text-xs bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400 px-2 py-0.5 rounded-full font-medium">
+            worn
+          </span>
+        )}
+
+        <button
+          data-no-drag
+          onClick={() => onEdit(item)}
+          aria-label={`Edit ${item.name}`}
+          className="flex-shrink-0 p-1.5 -mr-1 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400"
+        >
+          <Pencil size={15} />
+        </button>
+
+        <GripVertical
+          size={15}
+          className={`flex-shrink-0 -ml-1 transition-opacity ${dragging ? 'text-blue-500' : 'text-gray-300 dark:text-gray-700'}`}
+        />
+      </div>
+
+      {/* Two independent counts need two controls, and they don't fit beside the
+          name on a phone. Own line, indented under the item, only when there is
+          more than one unit to split between bag and body. */}
+      {multi && (
+        <div data-no-drag className="flex items-center gap-2 mt-2 pl-10">
+          <Counter
+            noun="packed"
+            icon={<Check size={12} strokeWidth={3} />}
+            tone="text-green-600 dark:text-green-500"
+            value={state.packedQty}
+            total={state.qty}
+            onDec={() => step(-1, 'packed')}
+            onInc={() => step(1, 'packed')}
+            decLabel={`Unpack one ${item.name}`}
+            incLabel={`Pack one ${item.name}`}
+            canDec={state.packedQty > 0}
+            canInc={state.remaining > 0}
+          />
+          <Counter
+            noun="worn"
+            icon={<Shirt size={12} />}
+            tone="text-indigo-600 dark:text-indigo-400"
+            value={state.wornQty}
+            onDec={() => step(-1, 'worn')}
+            onInc={() => step(1, 'worn')}
+            decLabel={`Stop wearing one ${item.name}`}
+            incLabel={`Wear one ${item.name}`}
+            canDec={state.wornQty > 0}
+            canInc={state.wornQty < state.qty}
+          />
         </div>
       )}
+    </div>
+  );
+}
 
-      {state.worn && (
-        <span className="flex-shrink-0 text-xs bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400 px-2 py-0.5 rounded-full font-medium no-underline">
-          worn
-        </span>
-      )}
-
-      <button
-        data-no-drag
-        onClick={() => onEdit(item)}
-        aria-label={`Edit ${item.name}`}
-        className="flex-shrink-0 p-1.5 -mr-1 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400"
-      >
-        <Pencil size={15} />
-      </button>
-
-      <GripVertical
-        size={15}
-        className={`flex-shrink-0 -ml-1 transition-opacity ${dragging ? 'text-blue-500' : 'text-gray-300 dark:text-gray-700'}`}
-      />
+/** A −/+ pair around one count. `total` is shown only where there is one. */
+function Counter({ noun, icon, tone, value, total, onDec, onInc, decLabel, incLabel, canDec, canInc }) {
+  return (
+    <div className="flex items-center gap-1">
+      <StepButton label={decLabel} disabled={!canDec} onClick={onDec}>
+        <Minus size={14} />
+      </StepButton>
+      <span className={`flex items-center gap-1 text-xs font-semibold tabular-nums justify-center ${total != null ? 'w-12' : 'w-9'} ${
+        value > 0 ? tone : 'text-gray-400 dark:text-gray-600'
+      }`}>
+        {icon}
+        {total != null ? `${value}/${total}` : value}
+        <span className="sr-only">{noun}</span>
+      </span>
+      <StepButton label={incLabel} disabled={!canInc} onClick={onInc}>
+        <Plus size={14} />
+      </StepButton>
     </div>
   );
 }
@@ -399,20 +431,25 @@ function StepButton({ children, label, disabled, onClick }) {
 }
 
 function StatusCircle({ state }) {
-  const { status, packedQty, qty } = state;
-  // Partial gets an amber ring with a dot scaled to how much is in the bag —
-  // the exact count lives in the subline and the stepper, where it fits.
-  const fill = qty > 0 ? packedQty / qty : 0;
+  const { status, doneQty, qty, wornQty, packedQty } = state;
+  // Partial gets an amber ring with a dot scaled to how much is handled — the
+  // exact split lives in the subline and the counters, where it has room.
+  const fill = qty > 0 ? doneQty / qty : 0;
+  // A fully handled item that is mostly worn reads as worn, mostly packed reads
+  // as packed. Either way the subline carries the breakdown.
+  const leansWorn = wornQty > packedQty;
+  const showCheck = status === 'packed' || (status === 'mixed' && !leansWorn);
+  const showShirt = status === 'worn' || (status === 'mixed' && leansWorn);
 
   return (
     <div className={`w-7 h-7 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-      status === 'packed'  ? 'bg-green-500 border-green-500' :
-      status === 'worn'    ? 'bg-indigo-500 border-indigo-500' :
+      showShirt            ? 'bg-indigo-500 border-indigo-500' :
+      showCheck            ? 'bg-green-500 border-green-500' :
       status === 'partial' ? 'border-amber-500' :
                              'border-gray-300 dark:border-gray-600'
     }`}>
-      {status === 'packed'  && <Check size={13} className="text-white" strokeWidth={3} />}
-      {status === 'worn'    && <Shirt size={13} className="text-white" />}
+      {showCheck && <Check size={13} className="text-white" strokeWidth={3} />}
+      {showShirt && <Shirt size={13} className="text-white" />}
       {status === 'partial' && (
         <span
           className="rounded-full bg-amber-500 transition-all"
