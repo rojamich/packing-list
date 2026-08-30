@@ -18,7 +18,10 @@ import { getPackState, cyclePack, stepPack, packFields, packTotals, itemQty } fr
 import { parseDate, toDateInput, addMonths, replaceByDate, lastPurchase } from '../src/lib/dates.js';
 import { parseCSV, toCSV, itemsToCSV, parseImportFile, buildPlan } from '../src/lib/transfer.js';
 import { replaceState, replaceFields, getUrgency, replacementCost } from '../src/lib/replace.js';
-import { normalizeBagName, nameContains, findDuplicateBags, buildMergePlan, nameCollision } from '../src/lib/bags.js';
+import {
+  normalizeBagName, nameContains, findDuplicateBags, buildMergePlan, nameCollision,
+  buildPackGroups, parentOptions, canHaveParent,
+} from '../src/lib/bags.js';
 
 // ── money: deal verdicts ──────────────────────────────────────────
 
@@ -400,6 +403,82 @@ test('regression: importing a differently-spelled bag name does not spawn a seco
     mode: 'merge',
   });
   assert.equal(plan.bagCreates.length, 0, 'must reuse the bag it already has');
+});
+
+// ── bags: nesting ─────────────────────────────────────────────────
+
+const NESTED_BAGS = [
+  { id: 'fp', name: 'Mike (Farpoint 40)', emoji: '🎒', order: 1 },
+  { id: 'toil', name: 'Toiletries', emoji: '🧴', order: 2, parentBag: 'Mike (Farpoint 40)', packed: true },
+  { id: 'elec', name: 'Electronics', emoji: '🔌', order: 3, parentBag: 'Mike (Farpoint 40)', packed: false },
+  { id: 'sling', name: 'Mike Sling', emoji: '👝', order: 4 },
+];
+
+const NESTED_ITEMS = [
+  { id: 'a', name: 'Merino t-shirts', inBag: 'Mike (Farpoint 40)', qty: 3, packedQty: 3 },
+  { id: 'b', name: 'Toothbrush', inBag: 'Toiletries', qty: 1 },
+  { id: 'c', name: 'Sunscreen', inBag: 'Toiletries', qty: 1, packedQty: 1 },
+  { id: 'd', name: 'Cable', inBag: 'Electronics', qty: 2, packedQty: 1 },
+  { id: 'e', name: 'Passport', inBag: null, qty: 1 },
+];
+
+test('a sub-bag nests under its parent instead of listing separately', () => {
+  const groups = buildPackGroups(NESTED_BAGS, NESTED_ITEMS, packTotals);
+  assert.deepEqual(groups.map((g) => g.name), ['Mike (Farpoint 40)', 'Unassigned']);
+
+  const fp = groups[0];
+  assert.deepEqual(fp.subBags.map((s) => s.bag.name), ['Toiletries', 'Electronics']);
+});
+
+test('a sub-bag counts as one unit in its parent, not its contents', () => {
+  const fp = buildPackGroups(NESTED_BAGS, NESTED_ITEMS, packTotals)[0];
+  // 3 t-shirt units + 2 sub-bags = 5, of which 3 packed + 1 ticked sub-bag = 4.
+  assert.equal(fp.totals.total, 5);
+  assert.equal(fp.totals.done, 4);
+});
+
+test('a sub-bag keeps its own contents and its own progress', () => {
+  const fp = buildPackGroups(NESTED_BAGS, NESTED_ITEMS, packTotals)[0];
+  const toiletries = fp.subBags[0];
+  assert.deepEqual(toiletries.items.map((i) => i.name), ['Toothbrush', 'Sunscreen']);
+  assert.equal(toiletries.totals.total, 2);
+  assert.equal(toiletries.totals.done, 1);
+  assert.equal(toiletries.packed, true, 'ticked as a unit in the parent');
+});
+
+test('unassigned items still get a group, and it comes last', () => {
+  const groups = buildPackGroups(NESTED_BAGS, NESTED_ITEMS, packTotals);
+  assert.equal(groups[groups.length - 1].name, 'Unassigned');
+});
+
+test('a bag nobody has anything in is not shown', () => {
+  const groups = buildPackGroups(NESTED_BAGS, NESTED_ITEMS, packTotals);
+  assert.equal(groups.some((g) => g.name === 'Mike Sling'), false);
+});
+
+test('a parent link pointing at nothing is ignored', () => {
+  const orphaned = [{ id: 'x', name: 'Cube', parentBag: 'A bag that was deleted' }];
+  const groups = buildPackGroups(orphaned, [{ id: 'i', inBag: 'Cube', qty: 1 }], packTotals);
+  assert.deepEqual(groups.map((g) => g.name), ['Cube'], 'falls back to top level');
+});
+
+test('nesting is one level deep, so cycles cannot happen', () => {
+  // Farpoint holds sub-bags, so it cannot itself be put inside anything.
+  assert.equal(canHaveParent(NESTED_BAGS[0], NESTED_BAGS), false);
+  assert.equal(canHaveParent(NESTED_BAGS[3], NESTED_BAGS), true, 'a leaf bag can be nested');
+
+  // A bag that is already a sub-bag is not offered as a parent.
+  assert.deepEqual(
+    parentOptions(NESTED_BAGS[3], NESTED_BAGS).map((b) => b.name),
+    ['Mike (Farpoint 40)'],
+  );
+});
+
+test('a bag cannot be its own parent', () => {
+  const self = [{ id: 'x', name: 'Cube', parentBag: 'Cube' }];
+  const groups = buildPackGroups(self, [{ id: 'i', inBag: 'Cube', qty: 1 }], packTotals);
+  assert.deepEqual(groups.map((g) => g.name), ['Cube']);
+  assert.equal(groups[0].subBags.length, 0);
 });
 
 // ── transfer: CSV ─────────────────────────────────────────────────

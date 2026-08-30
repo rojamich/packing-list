@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import Sheet from './Sheet';
 import { addBag, updateBag, deleteBag } from '../data/store';
-import { nameCollision } from '../lib/bags';
+import { nameCollision, parentOptions, canHaveParent } from '../lib/bags';
 import { useData } from '../context/DataContext';
 
 const EMOJIS = ['🎒', '👝', '📷', '🧳', '💼', '🎽'];
@@ -19,6 +19,7 @@ export default function BagModal({ bag, itemCount = 0, onClose }) {
     owner: bag?.owner || 'Mike',
     emoji: bag?.emoji || '🎒',
     order: bag?.order ?? 99,
+    parentBag: bag?.parentBag || '',
   });
   const [saving,     setSaving]     = useState(false);
   const [deleteStep, setDeleteStep] = useState(null); // null | 'confirm'
@@ -37,6 +38,12 @@ export default function BagModal({ bag, itemCount = 0, onClose }) {
   // Items point at bags by name, so a near-duplicate name quietly splits one
   // real bag in two. Warn rather than block: similar names are sometimes
   // deliberate, and the merge tool on the Data page undoes it either way.
+  // One level only: a bag already holding sub-bags cannot itself be put inside
+  // something. That is how packing actually works, and it makes cycles
+  // impossible rather than something to detect and recover from.
+  const nestable = canHaveParent(bag || {}, bags);
+  const parents = useMemo(() => parentOptions(bag || {}, bags), [bag, bags]);
+
   const collision = useMemo(
     () => (form.name.trim() ? nameCollision(form.name, bags, bag?.id) : null),
     [form.name, bags, bag?.id],
@@ -47,7 +54,7 @@ export default function BagModal({ bag, itemCount = 0, onClose }) {
     setSaving(true);
     setError(null);
     try {
-      const data = { ...form, name: form.name.trim() };
+      const data = { ...form, name: form.name.trim(), parentBag: form.parentBag || null };
       if (isNew) await addBag(data);
       else       await updateBag(bag.id, bag.name, data);
       confirmHaptic();
@@ -129,6 +136,32 @@ export default function BagModal({ bag, itemCount = 0, onClose }) {
               ))}
             </div>
           </Field>
+
+          {parents.length > 0 && (
+            <Field label="Inside another bag">
+              <select
+                value={form.parentBag}
+                onChange={(e) => setForm((f) => ({ ...f, parentBag: e.target.value }))}
+                className={input}
+              >
+                <option value="">Not inside anything — packed on its own</option>
+                {parents.map((b) => (
+                  <option key={b.id} value={b.name}>{b.emoji || '🎒'} {b.name}</option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
+                {form.parentBag
+                  ? `Shows inside ${form.parentBag} as one line you tick once. What's in here is packed separately.`
+                  : 'Pick a bag to put this one inside — a toiletries bag in the Farpoint, say.'}
+              </p>
+            </Field>
+          )}
+
+          {!nestable && !isNew && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-lg px-3 py-2">
+              This bag holds other bags, so it can't be put inside one itself.
+            </p>
+          )}
 
           <Field label="Icon">
             <div className="flex gap-2">

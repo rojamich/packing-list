@@ -77,7 +77,9 @@ service cloud.firestore {
           && d.keys().size() <= 20
           && (!('owner' in d) || optStr(d.owner, 20))
           && (!('emoji' in d) || optStr(d.emoji, 16))
-          && (!('order' in d) || optNum(d.order));
+          && (!('order' in d) || optNum(d.order))
+          && (!('parentBag' in d) || optStr(d.parentBag, 120))
+          && (!('packed' in d) || optBool(d.packed));
     }
 
     // settings/app holds shared exchange rates and a currency preference, and

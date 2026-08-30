@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Search, RotateCcw, Check, Shirt, Pencil, GripVertical, Minus, Plus } from 'lucide-react';
+import { Search, RotateCcw, Check, Shirt, Pencil, GripVertical, Minus, Plus, ChevronDown, ChevronRight } from 'lucide-react';
 import { useData } from '../context/DataContext';
-import { setPackState, resetAllPacked, reorderItems } from '../data/store';
+import { setPackState, resetAllPacked, reorderItems, setBagPacked, resetPackedBags } from '../data/store';
+import { buildPackGroups } from '../lib/bags';
 import { getPackState, cyclePack, stepPack, packTotals } from '../lib/packing';
 import useLongPressReorder from '../hooks/useLongPressReorder';
 import ItemModal from '../components/ItemModal';
+import BagModal from '../components/BagModal';
 
 export default function Pack() {
   const { items, bags, loading } = useData();
@@ -15,6 +17,7 @@ export default function Pack() {
   const [resetting,    setResetting]    = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const [editing,      setEditing]      = useState(null);
+  const [editingBag,   setEditingBag]   = useState(null);
   const [writeError,   setWriteError]   = useState(null);
 
   // Offline edits are queued by Firestore and settle later, so this only fires
@@ -42,19 +45,21 @@ export default function Pack() {
 
   const bagOrder = useMemo(() => bags.map((b) => b.name), [bags]);
 
-  const grouped = useMemo(() => {
-    const byBag = {};
-    filtered.forEach((item) => {
-      const b = item.inBag || 'Unassigned';
-      (byBag[b] ||= []).push(item);
-    });
-    const ordered = bagOrder.filter((b) => byBag[b]).map((b) => [b, byBag[b]]);
-    const rest    = Object.entries(byBag).filter(([b]) => !bagOrder.includes(b));
-    return [...ordered, ...rest];
-  }, [filtered, bagOrder]);
+  const groups = useMemo(() => buildPackGroups(bags, filtered, packTotals), [bags, filtered]);
 
-  // Progress counts units, not rows — 1 of 2 shorts is half packed, not unpacked.
-  const stats = useMemo(() => packTotals(filtered), [filtered]);
+  // Progress counts units, not rows — 1 of 2 shorts is half packed, not
+  // unpacked — and a sub-bag is a single unit in its parent, matching what each
+  // group header shows. Summing the groups keeps the two numbers consistent.
+  const stats = useMemo(() => {
+    let total = 0, packed = 0, worn = 0;
+    groups.forEach((g) => {
+      const t = packTotals(g.items);
+      total  += t.total + g.subBags.length;
+      packed += t.packed + g.subBags.filter((s) => s.packed).length;
+      worn   += t.worn;
+    });
+    return { total, packed, worn, done: packed + worn };
+  }, [groups]);
   const packedPct = stats.total > 0 ? (stats.packed / stats.total) * 100 : 0;
   const wornPct   = stats.total > 0 ? (stats.worn   / stats.total) * 100 : 0;
   const complete  = stats.total > 0 && stats.done === stats.total;
@@ -68,6 +73,16 @@ export default function Pack() {
 
   const handleReorder = useMemo(() => guard(reorderItems), [guard]);
   const handleSetPack = useMemo(() => guard(setPackState), [guard]);
+  const handleToggleSubBag = useMemo(
+    () => guard((bag, packed) => setBagPacked(bag.id, packed)),
+    [guard],
+  );
+
+  // Sub-bags currently shown, so a reset unticks them alongside the items.
+  const shownSubBags = useMemo(
+    () => groups.flatMap((g) => g.subBags.filter((s) => s.packed).map((s) => s.bag)),
+    [groups],
+  );
 
   // Only the rows actually on screen. This button sits directly beneath the
   // person and bag filters, so resetting the whole collection from here quietly
@@ -76,6 +91,7 @@ export default function Pack() {
     () => filtered.filter((i) => getPackState(i).doneQty > 0),
     [filtered],
   );
+  const resetCount = resetTargets.length + shownSubBags.length;
 
   // Matches the tap-again pattern used for item and bag deletes, instead of a
   // blocking browser dialog that can't say how many rows it is about to touch.
@@ -89,18 +105,17 @@ export default function Pack() {
   useEffect(() => { setConfirmReset(false); }, [search, personFilter, bagFilter]);
 
   async function handleReset() {
-    if (resetTargets.length === 0) return;
+    if (resetCount === 0) return;
     if (!confirmReset) { setConfirmReset(true); return; }
     setConfirmReset(false);
     setResetting(true);
     setWriteError(null);
-    try { await resetAllPacked(resetTargets); }
+    try {
+      await resetAllPacked(resetTargets);
+      await resetPackedBags(shownSubBags);
+    }
     catch (e) { setWriteError(e?.message || 'Could not reset.'); }
     finally { setResetting(false); }
-  }
-
-  function bagEmoji(name) {
-    return bags.find((b) => b.name === name)?.emoji || (name === 'Unassigned' ? '📦' : '🎒');
   }
 
   return (
@@ -110,7 +125,7 @@ export default function Pack() {
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">Pack Mode</h1>
           <button
             onClick={handleReset}
-            disabled={resetting || resetTargets.length === 0}
+            disabled={resetting || resetCount === 0}
             className={`flex items-center gap-1.5 text-sm disabled:opacity-40 ${
               confirmReset
                 ? 'text-red-600 dark:text-red-400 font-semibold'
@@ -119,10 +134,10 @@ export default function Pack() {
           >
             <RotateCcw size={14} />
             {confirmReset
-              ? `Tap again to reset ${resetTargets.length}`
+              ? `Tap again to reset ${resetCount}`
               : filtering
-                ? `Reset ${resetTargets.length} shown`
-                : `Reset all ${resetTargets.length}`}
+                ? `Reset ${resetCount} shown`
+                : `Reset all ${resetCount}`}
           </button>
         </div>
 
@@ -187,19 +202,19 @@ export default function Pack() {
           </p>
         )}
 
-        {grouped.map(([bag, bagItems], groupIndex) => (
+        {groups.map((group, groupIndex) => (
           <BagGroup
-            key={bag}
-            bag={bag}
-            emoji={bagEmoji(bag)}
-            items={bagItems}
+            key={group.name}
+            group={group}
             // Keeps each bag's sortOrder values in their own band. Reordering is
             // only enabled unfiltered, so this index is stable.
             orderBase={(groupIndex + 1) * 100000}
             reorderable={!filtering}
             onEdit={setEditing}
+            onEditBag={setEditingBag}
             onReorder={handleReorder}
             onSetPack={handleSetPack}
+            onToggleSubBag={handleToggleSubBag}
           />
         ))}
 
@@ -225,6 +240,13 @@ export default function Pack() {
       )}
 
       {editing && <ItemModal item={editing} onClose={() => setEditing(null)} />}
+      {editingBag && (
+        <BagModal
+          bag={editingBag}
+          itemCount={items.filter((i) => i.inBag === editingBag.name).length}
+          onClose={() => setEditingBag(null)}
+        />
+      )}
     </div>
   );
 }
@@ -232,12 +254,11 @@ export default function Pack() {
 // ── One bag's list ────────────────────────────────────────────────
 // Each group owns its own reorder gesture; items only ever move within a bag.
 
-function BagGroup({ bag, emoji, items, orderBase = 0, reorderable, onEdit, onReorder, onSetPack }) {
+function BagGroup({ group, orderBase = 0, reorderable, onEdit, onEditBag, onReorder, onSetPack, onToggleSubBag }) {
+  const { items, subBags, emoji, name, totals } = group;
+
   const ids = useMemo(() => items.map((i) => i.id), [items]);
-  const commit = useMemo(
-    () => (nextIds) => onReorder(nextIds, orderBase),
-    [onReorder, orderBase],
-  );
+  const commit = useMemo(() => (nextIds) => onReorder(nextIds, orderBase), [onReorder, orderBase]);
   const { dragId, order, getRowProps } = useLongPressReorder(ids, commit, reorderable);
 
   // While dragging, render the live order instead of what Firestore last sent.
@@ -247,13 +268,13 @@ function BagGroup({ bag, emoji, items, orderBase = 0, reorderable, onEdit, onReo
     return order.map((id) => byId.get(id)).filter(Boolean);
   }, [items, order]);
 
-  const totals = packTotals(items);
-
   return (
     <div className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden shadow-sm">
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50 dark:border-gray-800">
-        <span className="font-semibold text-gray-900 dark:text-white text-sm">{emoji} {bag}</span>
-        <span className="text-xs text-gray-500 dark:text-gray-400">{totals.done}/{totals.total}</span>
+        <span className="font-semibold text-gray-900 dark:text-white text-sm">{emoji} {name}</span>
+        <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">
+          {totals.done}/{totals.total}
+        </span>
       </div>
 
       <div className="divide-y divide-gray-50 dark:divide-gray-800">
@@ -268,7 +289,99 @@ function BagGroup({ bag, emoji, items, orderBase = 0, reorderable, onEdit, onReo
             onSetPack={onSetPack}
           />
         ))}
+
+        {subBags.map((sub) => (
+          <SubBagRow
+            key={sub.bag.id}
+            sub={sub}
+            onToggle={onToggleSubBag}
+            onEdit={onEdit}
+            onEditBag={onEditBag}
+            onSetPack={onSetPack}
+          />
+        ))}
       </div>
+    </div>
+  );
+}
+
+/**
+ * A bag inside a bag. One tick packs the whole thing — on travel day you care
+ * that the toiletries bag is in, not what's in it. Expand to work through its
+ * contents, which are tracked on the sub-bag rather than the parent.
+ */
+function SubBagRow({ sub, onToggle, onEdit, onEditBag, onSetPack }) {
+  const [open, setOpen] = useState(false);
+  const { bag, items, totals, packed } = sub;
+  const inner = items.length > 0 ? `${totals.done}/${totals.total} inside` : 'empty';
+
+  return (
+    <div className="bg-gray-50/60 dark:bg-gray-800/20">
+      <div className="flex items-center gap-3 px-4 py-3">
+        <button
+          type="button"
+          onClick={() => onToggle(bag, !packed)}
+          aria-pressed={packed ? 'true' : 'false'}
+          aria-label={`${packed ? 'Unpack' : 'Pack'} ${bag.name}`}
+          className={`w-7 h-7 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+            packed ? 'bg-green-500 border-green-500' : 'border-gray-300 dark:border-gray-600'
+          }`}
+        >
+          {packed && <Check size={13} className="text-white" strokeWidth={3} />}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          className="flex-1 flex items-center gap-2 min-w-0 text-left rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+        >
+          <span className="text-base">{bag.emoji || '🎒'}</span>
+          <span className="flex-1 min-w-0">
+            <span className={`block text-sm font-medium truncate ${
+              packed ? 'text-gray-500 dark:text-gray-400 line-through' : 'text-gray-900 dark:text-white'
+            }`}>
+              {bag.name}
+            </span>
+            <span className="block text-xs text-gray-500 dark:text-gray-400 no-underline">
+              {inner}
+            </span>
+          </span>
+          {open
+            ? <ChevronDown size={16} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />
+            : <ChevronRight size={16} className="text-gray-500 dark:text-gray-400 flex-shrink-0" />}
+        </button>
+
+        <button
+          onClick={() => onEditBag(bag)}
+          aria-label={`Edit ${bag.name}`}
+          className="flex-shrink-0 p-1.5 -mr-1 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400"
+        >
+          <Pencil size={15} />
+        </button>
+      </div>
+
+      {open && (
+        <div className="border-t border-gray-100 dark:border-gray-800 divide-y divide-gray-100 dark:divide-gray-800 pl-4">
+          {items.length === 0 ? (
+            <p className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+              Nothing assigned to this bag yet.
+            </p>
+          ) : (
+            items.map((item) => (
+              <PackRow
+                key={item.id}
+                item={item}
+                dragging={false}
+                lifted={false}
+                rowProps={{ ref: () => {} }}
+                onEdit={onEdit}
+                onSetPack={onSetPack}
+              />
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 }

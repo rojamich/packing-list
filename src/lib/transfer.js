@@ -28,7 +28,7 @@ const ITEM_FIELDS = [
   'replaceQty',
 ];
 
-const BAG_FIELDS = ['name', 'owner', 'emoji', 'order'];
+const BAG_FIELDS = ['name', 'owner', 'emoji', 'order', 'parentBag', 'packed'];
 
 // The CSV keeps only the most recent purchase — a spreadsheet can't hold a
 // nested history, and the last price is what people actually want to edit.
@@ -38,7 +38,7 @@ export const ITEM_CSV_COLUMNS = [
   'lastPaidUSD', 'lastPaidDate', 'lastPaidCurrency', 'lastPaidLocal', 'lastPaidWhere',
 ];
 
-export const BAG_CSV_COLUMNS = ['id', 'name', 'owner', 'emoji', 'order'];
+export const BAG_CSV_COLUMNS = ['id', 'name', 'owner', 'emoji', 'order', 'parentBag'];
 
 // ── Export ────────────────────────────────────────────────────────
 
@@ -103,6 +103,7 @@ export function itemsToCSV(items) {
 export function bagsToCSV(bags) {
   return toCSV(BAG_CSV_COLUMNS, bags.map((b) => ({
     id: b.id, name: b.name ?? '', owner: b.owner ?? '', emoji: b.emoji ?? '', order: b.order ?? '',
+    parentBag: b.parentBag ?? '',
   })));
 }
 
@@ -298,6 +299,8 @@ function normalizeJsonBag(raw) {
     owner: pick(raw.owner, VALID_PERSON, 'Both'),
     emoji: raw.emoji || '🎒',
     order: num(raw.order, 99),
+    parentBag: raw.parentBag ? String(raw.parentBag).trim() : null,
+    packed: bool(raw.packed),
   };
 }
 
@@ -376,6 +379,7 @@ function normalizeCsvBag(row) {
     owner: pick(row.owner, VALID_PERSON, 'Both'),
     emoji: row.emoji?.trim() || '🎒',
     order: num(row.order, 99),
+    parentBag: row.parentBag?.trim() || null,
   };
 }
 

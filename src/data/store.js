@@ -167,6 +167,20 @@ export async function mergeBags(keeperName, losers = []) {
   return { moved, removed: removable.length };
 }
 
+/** A sub-bag is ticked as one unit inside its parent. */
+export async function setBagPacked(id, packed) {
+  await updateDoc(doc(db, 'bags', id), { packed: !!packed, updatedAt: serverTimestamp() });
+}
+
+/** Untick sub-bags alongside the items when resetting. */
+export async function resetPackedBags(bags = []) {
+  const targets = bags.filter((b) => b?.id && b.packed === true);
+  if (targets.length === 0) return;
+  await commitInChunks(targets, (batch, b) => {
+    batch.update(doc(db, 'bags', b.id), { packed: false, updatedAt: serverTimestamp() });
+  });
+}
+
 export async function reorderBags(orderedIds) {
   if (!orderedIds?.length) return;
   await commitInChunks(orderedIds, (batch, id, i) => {
@@ -244,6 +258,7 @@ export async function applyImportPlan(plan) {
       case 'bag-create':
         batch.set(doc(collection(db, 'bags')), {
           name: op.bag.name, owner: op.bag.owner, emoji: op.bag.emoji, order: op.bag.order,
+          parentBag: op.bag.parentBag ?? null,
           createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
         });
         break;
@@ -251,6 +266,7 @@ export async function applyImportPlan(plan) {
       case 'bag-update':
         batch.update(doc(db, 'bags', op.id), {
           name: op.bag.name, owner: op.bag.owner, emoji: op.bag.emoji, order: op.bag.order,
+          parentBag: op.bag.parentBag ?? null,
           updatedAt: serverTimestamp(),
         });
         break;
