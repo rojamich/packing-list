@@ -140,6 +140,33 @@ export async function deleteBag(id, name, reassignTo = null) {
   await deleteDoc(doc(db, 'bags', id));
 }
 
+/**
+ * Fold one or more bags into another.
+ *
+ * Items reference bags by name, so this rewrites `inBag` on every member of the
+ * losing bags before deleting them. Items move first: if the run is interrupted
+ * the worst case is a surviving empty bag, never an item pointing at a bag that
+ * no longer exists.
+ */
+export async function mergeBags(keeperName, losers = []) {
+  const targets = losers.filter((b) => b?.name && b.name !== keeperName);
+  if (targets.length === 0) return { moved: 0, removed: 0 };
+
+  let moved = 0;
+  for (const loser of targets) {
+    const snap = await getDocs(query(collection(db, 'items'), where('inBag', '==', loser.name)));
+    if (!snap.empty) {
+      await commitInChunks(snap.docs, (batch, d) => batch.update(d.ref, { inBag: keeperName }));
+      moved += snap.size;
+    }
+  }
+
+  const removable = targets.filter((b) => b.id);
+  await commitInChunks(removable, (batch, b) => batch.delete(doc(db, 'bags', b.id)));
+
+  return { moved, removed: removable.length };
+}
+
 export async function reorderBags(orderedIds) {
   if (!orderedIds?.length) return;
   await commitInChunks(orderedIds, (batch, id, i) => {

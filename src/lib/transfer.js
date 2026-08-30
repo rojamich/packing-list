@@ -14,6 +14,7 @@
 import { itemQty } from './packing.js';
 import { lastPurchase, toDateInput } from './dates.js';
 import { waitPctOff, waitPriceFromPct } from './money.js';
+import { normalizeBagName, resolveBagName } from './bags.js';
 
 export const SCHEMA = 'nomad-pack-list';
 export const SCHEMA_VERSION = 1;
@@ -421,7 +422,9 @@ export function buildPlan({ incoming, existingItems = [], existingBags = [], mod
     else byBareName.set(k, i);
   });
   const bagById   = new Map(existingBags.map((b) => [b.id, b]));
-  const bagByName = new Map(existingBags.map((b) => [String(b.name).trim().toLowerCase(), b]));
+  // Normalized, so "Scree 32" in a sheet matches the "Jen (Scree 32)" that
+  // already exists instead of silently creating a second bag beside it.
+  const bagByName = new Map(existingBags.map((b) => [normalizeBagName(b.name), b]));
 
   const itemCreates = [], itemUpdates = [], itemDeletes = [];
   const bagCreates  = [], bagUpdates  = [];
@@ -432,7 +435,7 @@ export function buildPlan({ incoming, existingItems = [], existingBags = [], mod
   // ── Bags ──
   (incoming.bags || []).forEach((bag) => {
     if (!bag.name) { skipped.push('A bag row has no name.'); return; }
-    const existing = (bag.id && bagById.get(bag.id)) || bagByName.get(bag.name.toLowerCase());
+    const existing = (bag.id && bagById.get(bag.id)) || bagByName.get(normalizeBagName(bag.name));
     if (existing) {
       const changes = diffFields(existing, bag, BAG_FIELDS);
       if (changes.length) bagUpdates.push({ id: existing.id, before: existing, after: bag, changes });
@@ -443,20 +446,32 @@ export function buildPlan({ incoming, existingItems = [], existingBags = [], mod
 
   // Bags referenced by items but not present anywhere yet.
   const knownBagNames = new Set([
-    ...existingBags.map((b) => String(b.name).trim().toLowerCase()),
-    ...(incoming.bags || []).map((b) => String(b.name).trim().toLowerCase()),
-    ...bagCreates.map((b) => String(b.name).trim().toLowerCase()),
+    ...existingBags.map((b) => normalizeBagName(b.name)),
+    ...(incoming.bags || []).map((b) => normalizeBagName(b.name)),
+    ...bagCreates.map((b) => normalizeBagName(b.name)),
   ]);
   const missingBags = new Map();
+  const redirectedBags = new Set();
 
   // ── Items ──
   (incoming.items || []).forEach((item, idx) => {
     if (!item.name) { skipped.push(`Row ${idx + 2} has no name and was skipped.`); return; }
 
     if (item.inBag) {
-      const k = item.inBag.trim().toLowerCase();
-      if (!knownBagNames.has(k) && !missingBags.has(k)) {
-        missingBags.set(k, { id: null, name: item.inBag.trim(), owner: item.person === 'Both' ? 'Both' : item.person, emoji: '🎒', order: 99 });
+      // A sheet saying "Scree 32" means the "Jen (Scree 32)" that already
+      // exists — point the item at the real bag instead of creating a twin
+      // beside it, which is how the duplicates appeared in the first place.
+      const canonical = resolveBagName(item.inBag, existingBags);
+      if (canonical) {
+        if (canonical !== item.inBag) {
+          redirectedBags.add(`“${item.inBag}” → “${canonical}”`);
+          item.inBag = canonical;
+        }
+      } else {
+        const k = normalizeBagName(item.inBag);
+        if (!knownBagNames.has(k) && !missingBags.has(k)) {
+          missingBags.set(k, { id: null, name: item.inBag.trim(), owner: item.person === 'Both' ? 'Both' : item.person, emoji: '🎒', order: 99 });
+        }
       }
     }
 
@@ -509,6 +524,10 @@ export function buildPlan({ incoming, existingItems = [], existingBags = [], mod
   const rateDropped = (incoming.items || []).filter((i) => i._csvRateDropped).length;
   if (rateDropped) {
     warnings.push(`${rateDropped} row(s) named a non-USD currency without a lastPaidLocal amount — there is no rate to record, so they are logged in USD.`);
+  }
+
+  if (redirectedBags.size) {
+    warnings.push(`Matched ${redirectedBags.size} bag name(s) to bags you already have: ${[...redirectedBags].join(', ')}.`);
   }
 
   if (missingBags.size && mode !== 'update') {

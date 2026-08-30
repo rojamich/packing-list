@@ -1,8 +1,9 @@
 import { useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Download, Upload, AlertTriangle, Check, FileJson, Table } from 'lucide-react';
+import { ArrowLeft, Download, Upload, AlertTriangle, Check, FileJson, Table, Layers } from 'lucide-react';
 import { useData } from '../context/DataContext';
-import { applyImportPlan } from '../data/store';
+import { applyImportPlan, mergeBags } from '../data/store';
+import { findDuplicateBags, buildMergePlan } from '../lib/bags';
 import { APP_VERSION } from '../lib/version';
 import {
   buildBackup, itemsToCSV, bagsToCSV, parseImportFile, buildPlan,
@@ -28,6 +29,26 @@ export default function Data() {
   const [applying, setApplying] = useState(false);
   const [result, setResult]   = useState(null);
   const [confirmText, setConfirmText] = useState('');
+  const [merging, setMerging] = useState(false);
+  const [mergeResult, setMergeResult] = useState(null);
+  const [mergeError, setMergeError] = useState(null);
+
+  // Recomputed from live data, so a merged group disappears on its own.
+  const duplicates = useMemo(() => findDuplicateBags(bags, items), [bags, items]);
+
+  async function handleMerge(plan) {
+    setMerging(true);
+    setMergeError(null);
+    setMergeResult(null);
+    try {
+      const res = await mergeBags(plan.keeper.name, plan.losers);
+      setMergeResult(res);
+    } catch (err) {
+      setMergeError(err.message || 'Could not merge those bags.');
+    } finally {
+      setMerging(false);
+    }
+  }
 
   const plan = useMemo(
     () => (parsed ? buildPlan({ incoming: parsed, existingItems: items, existingBags: bags, mode }) : null),
@@ -105,6 +126,45 @@ export default function Data() {
       </div>
 
       <div className="px-4 space-y-4 mt-2">
+        {/* ── Duplicate bags ── */}
+        {duplicates.length > 0 && (
+          <section className="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm space-y-3">
+            <div className="flex items-center gap-2">
+              <Layers size={16} className="text-gray-500 dark:text-gray-400" />
+              <h2 className="font-semibold text-gray-900 dark:text-white">
+                Duplicate bags ({duplicates.length})
+              </h2>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+              Items point at bags by name, so a different spelling makes a second bag holding
+              half your things. Pick the one to keep — the other's items move across, and the
+              empty bag goes.
+            </p>
+
+            {duplicates.map((group) => (
+              <MergeGroup
+                key={group.bags.map((b) => b.id).join('-')}
+                group={group}
+                items={items}
+                busy={merging}
+                onMerge={handleMerge}
+              />
+            ))}
+
+            {mergeResult && (
+              <p className="text-sm font-semibold text-green-800 dark:text-green-300 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl px-3 py-2 flex items-center gap-1.5">
+                <Check size={14} /> Merged — {plural(mergeResult.moved, 'item')} moved,
+                {' '}{plural(mergeResult.removed, 'bag')} removed
+              </p>
+            )}
+            {mergeError && (
+              <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">
+                {mergeError}
+              </p>
+            )}
+          </section>
+        )}
+
         {/* ── Export ── */}
         <section className="bg-white dark:bg-gray-900 rounded-2xl p-4 shadow-sm space-y-3">
           <div className="flex items-center gap-2">
@@ -317,6 +377,77 @@ export default function Data() {
         <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
           Both of you share one dataset — an import changes what you both see.
         </p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * One set of bags that look like the same real bag. Pick which name survives;
+ * everything else folds into it. Nothing is written until Merge is tapped.
+ */
+function MergeGroup({ group, items, busy, onMerge }) {
+  const [keeperId, setKeeperId] = useState(group.bags[0].id);
+  const plan = buildMergePlan(group, keeperId, items);
+
+  return (
+    <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+      <div className="px-3 py-2 bg-gray-50 dark:bg-gray-800/50 flex items-center gap-2">
+        <span className={`text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${
+          group.reason === 'exact'
+            ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+            : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+        }`}>
+          {group.reason === 'exact' ? 'Same name' : 'Similar'}
+        </span>
+        <span className="text-xs text-gray-500 dark:text-gray-400">Keep which one?</span>
+      </div>
+
+      <div className="divide-y divide-gray-100 dark:divide-gray-800">
+        {group.bags.map((bag) => (
+          <label
+            key={bag.id}
+            className="flex items-center gap-3 px-3 py-2.5 cursor-pointer active:bg-gray-50 dark:active:bg-gray-800"
+          >
+            <input
+              type="radio"
+              name={`keep-${group.bags.map((b) => b.id).join('-')}`}
+              checked={keeperId === bag.id}
+              onChange={() => setKeeperId(bag.id)}
+              className="w-4 h-4 accent-blue-600"
+            />
+            <span className="text-lg">{bag.emoji}</span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-sm font-medium text-gray-900 dark:text-white truncate">
+                {bag.name}
+              </span>
+              <span className="block text-xs text-gray-500 dark:text-gray-400">
+                {bag.owner || 'Unassigned owner'} · {plural(bag.itemCount, 'item')}
+              </span>
+            </span>
+            {keeperId === bag.id && (
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-green-700 dark:text-green-400">
+                keep
+              </span>
+            )}
+          </label>
+        ))}
+      </div>
+
+      <div className="px-3 py-2.5 border-t border-gray-100 dark:border-gray-800 flex items-center gap-3">
+        <span className="flex-1 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+          {plan.itemsMoved > 0
+            ? `${plural(plan.itemsMoved, 'item')} move into “${plan.keeper.name}”.`
+            : 'Nothing to move — the other bag is already empty.'}
+          {' '}{plural(plan.bagsRemoved, 'bag')} removed.
+        </span>
+        <button
+          onClick={() => onMerge(plan)}
+          disabled={busy}
+          className="flex-shrink-0 bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold text-sm disabled:opacity-50 active:bg-blue-700"
+        >
+          {busy ? 'Merging…' : 'Merge'}
+        </button>
       </div>
     </div>
   );

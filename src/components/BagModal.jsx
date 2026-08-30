@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import Sheet from './Sheet';
 import { addBag, updateBag, deleteBag } from '../data/store';
+import { nameCollision } from '../lib/bags';
 import { useData } from '../context/DataContext';
 
 const EMOJIS = ['🎒', '👝', '📷', '🧳', '💼', '🎽'];
@@ -32,6 +33,14 @@ export default function BagModal({ bag, itemCount = 0, onClose }) {
   }, [deleteStep]);
 
   const otherBags = bags.filter((b) => b.id !== bag?.id);
+
+  // Items point at bags by name, so a near-duplicate name quietly splits one
+  // real bag in two. Warn rather than block: similar names are sometimes
+  // deliberate, and the merge tool on the Data page undoes it either way.
+  const collision = useMemo(
+    () => (form.name.trim() ? nameCollision(form.name, bags, bag?.id) : null),
+    [form.name, bags, bag?.id],
+  );
 
   async function handleSave() {
     if (!form.name.trim()) return;
@@ -76,6 +85,20 @@ export default function BagModal({ bag, itemCount = 0, onClose }) {
             <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">
               {error}
             </p>
+          )}
+
+          {collision && (
+            <div className="text-sm bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
+              <p className="font-medium text-amber-900 dark:text-amber-200">
+                {collision.kind === 'exact'
+                  ? 'A bag with this name already exists'
+                  : 'This looks like an existing bag'}
+              </p>
+              <p className="text-xs mt-0.5 text-amber-700 dark:text-amber-300">
+                {collision.bag.emoji || '🎒'} {collision.bag.name} — items point at bags by
+                name, so two similar names split one real bag in two.
+              </p>
+            </div>
           )}
 
           <Field label="Bag Name">

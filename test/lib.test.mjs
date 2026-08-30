@@ -18,6 +18,7 @@ import { getPackState, cyclePack, stepPack, packFields, packTotals, itemQty } fr
 import { parseDate, toDateInput, addMonths, replaceByDate, lastPurchase } from '../src/lib/dates.js';
 import { parseCSV, toCSV, itemsToCSV, parseImportFile, buildPlan } from '../src/lib/transfer.js';
 import { replaceState, replaceFields, getUrgency, replacementCost } from '../src/lib/replace.js';
+import { normalizeBagName, nameContains, findDuplicateBags, buildMergePlan, nameCollision } from '../src/lib/bags.js';
 
 // ── money: deal verdicts ──────────────────────────────────────────
 
@@ -312,6 +313,93 @@ test('replace-by comes from the newest purchase', () => {
   assert.equal(lastPurchase(item).amountUSD, 20);
   assert.equal(toDateInput(replaceByDate(item)), '2027-03-05');
   assert.equal(replaceByDate({ estLifeMonths: 12 }), null, 'unknown without a purchase');
+});
+
+// ── bags ──────────────────────────────────────────────────────────
+
+const DUPES = [
+  { id: 'a', name: 'Jen (Scree 32)', emoji: '🎒', owner: 'Jen' },
+  { id: 'b', name: 'Scree 32', emoji: '🎒', owner: 'Jen' },
+  { id: 'c', name: 'Mike (Farpoint 40)', emoji: '🎒', owner: 'Mike' },
+  { id: 'd', name: 'mike sling', emoji: '👝', owner: 'Mike' },
+  { id: 'e', name: 'Mike Sling', emoji: '👝', owner: 'Mike' },
+];
+
+const DUPE_ITEMS = [
+  ...Array.from({ length: 9 }, (_, i) => ({ id: `s${i}`, inBag: 'Jen (Scree 32)' })),
+  ...Array.from({ length: 3 }, (_, i) => ({ id: `t${i}`, inBag: 'Scree 32' })),
+  { id: 'f1', inBag: 'Mike (Farpoint 40)' },
+  { id: 'm1', inBag: 'Mike Sling' },
+];
+
+test('bag names normalize past case, punctuation and spacing', () => {
+  assert.equal(normalizeBagName('Jen (Scree 32)'), 'jen scree 32');
+  assert.equal(normalizeBagName('  MIKE   Sling  '), 'mike sling');
+  assert.equal(normalizeBagName(null), '');
+});
+
+test('a short name inside a longer one is a suspected duplicate', () => {
+  assert.equal(nameContains('Jen (Scree 32)', 'Scree 32'), true);
+  assert.equal(nameContains('Slingshot', 'Sling'), false, 'word boundaries, not substrings');
+  assert.equal(nameContains('Mike Sling', 'Jen Sling (Camera)'), false);
+  assert.equal(nameContains('Jen (Scree 32)', 'Jen (Scree 32)'), false, 'not a duplicate of itself');
+});
+
+test('duplicates are found and the busiest bag is suggested as the keeper', () => {
+  const groups = findDuplicateBags(DUPES, DUPE_ITEMS);
+  assert.equal(groups.length, 2);
+
+  const exact = groups.find((g) => g.reason === 'exact');
+  assert.deepEqual(exact.bags.map((b) => b.id).sort(), ['d', 'e']);
+
+  const similar = groups.find((g) => g.reason === 'similar');
+  assert.deepEqual(similar.bags.map((b) => b.name), ['Jen (Scree 32)', 'Scree 32']);
+  assert.equal(similar.bags[0].itemCount, 9, 'the one most items already point at comes first');
+});
+
+test('a bag with no lookalike is left alone', () => {
+  const groups = findDuplicateBags(DUPES, DUPE_ITEMS);
+  assert.equal(groups.some((g) => g.bags.some((b) => b.id === 'c')), false);
+});
+
+test('no duplicates means no groups', () => {
+  const clean = [{ id: '1', name: 'Farpoint 40' }, { id: '2', name: 'Camera Sling' }];
+  assert.deepEqual(findDuplicateBags(clean, []), []);
+});
+
+test('the merge plan says exactly what moves', () => {
+  const scree = findDuplicateBags(DUPES, DUPE_ITEMS).find((g) => g.reason === 'similar');
+
+  const plan = buildMergePlan(scree, 'a', DUPE_ITEMS);
+  assert.equal(plan.keeper.name, 'Jen (Scree 32)');
+  assert.equal(plan.itemsMoved, 3);
+  assert.equal(plan.bagsRemoved, 1);
+  assert.deepEqual(plan.losers.map((b) => b.name), ['Scree 32']);
+
+  // Keeping the other one instead moves the other pile.
+  const flipped = buildMergePlan(scree, 'b', DUPE_ITEMS);
+  assert.equal(flipped.keeper.name, 'Scree 32');
+  assert.equal(flipped.itemsMoved, 9);
+});
+
+test('a new bag name is checked against the ones that exist', () => {
+  assert.equal(nameCollision('MIKE SLING', DUPES)?.kind, 'exact');
+  assert.equal(nameCollision('Scree 32', [DUPES[0]])?.kind, 'similar');
+  assert.equal(nameCollision('Packing Cube', DUPES), null);
+  assert.equal(nameCollision('Mike (Farpoint 40)', DUPES, 'c'), null, 'renaming a bag to itself is fine');
+});
+
+test('regression: importing a differently-spelled bag name does not spawn a second bag', () => {
+  // This is how the duplicates appeared: the sheet says "Scree 32", the app
+  // already has "Jen (Scree 32)", and the importer used to create both.
+  const parsed = parseImportFile('name,category,inBag\nHeadlamp,Electronics,Scree 32', 'items.csv');
+  const plan = buildPlan({
+    incoming: parsed,
+    existingItems: [],
+    existingBags: [{ id: 'a', name: 'Jen (Scree 32)', owner: 'Jen', emoji: '🎒', order: 1 }],
+    mode: 'merge',
+  });
+  assert.equal(plan.bagCreates.length, 0, 'must reuse the bag it already has');
 });
 
 // ── transfer: CSV ─────────────────────────────────────────────────
