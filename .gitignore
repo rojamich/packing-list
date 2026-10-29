@@ -7,3 +7,4 @@ dist
 firebase-debug.log
 firestore-debug.log
 *-debug.log
+.claude/settings.local.json

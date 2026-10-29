@@ -19,7 +19,7 @@ const MODES = [
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 export default function Data() {
-  const { items, bags, settings } = useData();
+  const { items, bags, categories, profiles, settings } = useData();
   const fileInput = useRef(null);
 
   const [parsed, setParsed]   = useState(null);   // normalised file contents
@@ -60,7 +60,7 @@ export default function Data() {
 
   // ── Export ──────────────────────────────────────────────────────
   function exportJSON() {
-    const backup = buildBackup({ items, bags, settings, appVersion: APP_VERSION });
+    const backup = buildBackup({ items, bags, categories, profiles, settings, appVersion: APP_VERSION });
     downloadFile(timestampedName('packlist-backup', 'json'), JSON.stringify(backup, null, 2), 'application/json');
   }
 

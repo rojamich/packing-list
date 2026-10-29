@@ -9,11 +9,12 @@ import ItemModal from '../components/ItemModal';
 import BagModal from '../components/BagModal';
 
 export default function Pack() {
-  const { items, bags, loading } = useData();
+  const { items, bags, profiles, loading } = useData();
 
   const [search,       setSearch]       = useState('');
   const [personFilter, setPersonFilter] = useState('All');
   const [bagFilter,    setBagFilter]    = useState('All');
+  const [profileFilter, setProfileFilter] = useState('All');
   const [resetting,    setResetting]    = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const [editing,      setEditing]      = useState(null);
@@ -31,7 +32,17 @@ export default function Pack() {
     }
   }, []);
 
-  const filtering = search !== '' || personFilter !== 'All' || bagFilter !== 'All';
+  const activeProfile = useMemo(
+    () => profiles.find((profile) => profile.id === profileFilter) || null,
+    [profiles, profileFilter],
+  );
+  const profileItemIds = useMemo(() => {
+    const ids = new Set(activeProfile?.itemIds || []);
+    const keys = new Set((activeProfile?.itemKeys || []).map((item) => `${item.name}|${item.person || 'Both'}`));
+    items.forEach((item) => { if (keys.has(`${item.name}|${item.person || 'Both'}`)) ids.add(item.id); });
+    return ids;
+  }, [activeProfile, items]);
+  const filtering = search !== '' || personFilter !== 'All' || bagFilter !== 'All' || !!activeProfile;
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -39,9 +50,10 @@ export default function Pack() {
       const ms = !q || String(item.name || '').toLowerCase().includes(q);
       const mp = personFilter === 'All' || item.person === personFilter || item.person === 'Both';
       const mb = bagFilter === 'All' || (item.inBag || 'Unassigned') === bagFilter;
-      return ms && mp && mb;
+      const mprofile = !activeProfile || profileItemIds.has(item.id);
+      return ms && mp && mb && mprofile;
     });
-  }, [items, search, personFilter, bagFilter]);
+  }, [items, search, personFilter, bagFilter, activeProfile, profileItemIds]);
 
   const bagOrder = useMemo(() => bags.map((b) => b.name), [bags]);
 
@@ -105,7 +117,7 @@ export default function Pack() {
   }, [confirmReset]);
 
   // Changing a filter changes what the button would do, so disarm it.
-  useEffect(() => { setConfirmReset(false); }, [search, personFilter, bagFilter]);
+  useEffect(() => { setConfirmReset(false); }, [search, personFilter, bagFilter, profileFilter]);
 
   async function handleReset() {
     if (resetCount === 0) return;
@@ -167,6 +179,13 @@ export default function Pack() {
             <Pill key={b} label={b} active={bagFilter === b} onClick={() => setBagFilter(b)} />
           ))}
         </div>
+
+        {profiles.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-0.5">
+            <Pill label="All Items" active={profileFilter === 'All'} onClick={() => setProfileFilter('All')} />
+            {profiles.map((profile) => <Pill key={profile.id} label={profile.name} active={profileFilter === profile.id} onClick={() => setProfileFilter(profile.id)} />)}
+          </div>
+        )}
 
         <div className="bg-white dark:bg-gray-900 rounded-2xl p-3 shadow-sm">
           <div className="flex justify-between text-sm mb-2">

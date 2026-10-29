@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Search, Plus, ChevronDown, ChevronRight, Tag } from 'lucide-react';
+import { Search, Plus, ChevronDown, ChevronRight, Tag, CheckSquare, FolderCog } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { formatUSD, waitPctOff } from '../lib/money';
 import { lastPurchase } from '../lib/dates';
@@ -7,6 +7,10 @@ import { replaceState } from '../lib/replace';
 import { canonicalCategory } from '../lib/categories';
 import ItemModal from '../components/ItemModal';
 import BagModal  from '../components/BagModal';
+import BulkEditSheet from '../components/BulkEditSheet';
+import CategoryManager from '../components/CategoryManager';
+import ProfileSheet from '../components/ProfileSheet';
+import { bagWeight, formatWeight, grams } from '../lib/weights';
 
 const STATUS_COLORS = {
   have:    'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
@@ -34,6 +38,16 @@ export default function Gear() {
   const [addingItem,   setAddingItem]   = useState(false);
   const [selectedBag,  setSelectedBag]  = useState(null);
   const [addingBag,    setAddingBag]    = useState(false);
+  const [selecting,    setSelecting]    = useState(false);
+  const [selectedIds,  setSelectedIds]  = useState([]);
+  const [bulkEditing,  setBulkEditing]  = useState(false);
+  const [managingCategories, setManagingCategories] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [managingProfiles, setManagingProfiles] = useState(false);
+
+  const toggleSelected = (id) => setSelectedIds((current) => current.includes(id)
+    ? current.filter((value) => value !== id) : [...current, id]);
+  const stopSelecting = () => { setSelecting(false); setSelectedIds([]); };
 
   // ── Items view ────────────────────────────────────────────────────
   const grouped = useMemo(() => {
@@ -122,6 +136,11 @@ export default function Gear() {
                 </button>
               ))}
             </div>
+            <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+              <button onClick={() => selecting ? stopSelecting() : setSelecting(true)} className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 inline-flex items-center gap-1"><CheckSquare size={13} />{selecting ? 'Cancel select' : 'Select items'}</button>
+              <button onClick={() => setManagingCategories(true)} className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 inline-flex items-center gap-1"><FolderCog size={13} />Categories</button>
+              <button onClick={() => setManagingProfiles(true)} className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300">Profiles</button>
+            </div>
           </>
         )}
       </div>
@@ -155,9 +174,11 @@ export default function Gear() {
                   {catItems.map((item) => (
                     <button
                       key={item.id}
-                      onClick={() => setSelectedItem(item)}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 active:bg-gray-100 dark:active:bg-gray-800 transition-colors"
+                      onClick={() => selecting ? toggleSelected(item.id) : setSelectedItem(item)}
+                      aria-pressed={selecting ? selectedIds.includes(item.id) : undefined}
+                      className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 active:bg-gray-100 dark:active:bg-gray-800 transition-colors ${selecting && selectedIds.includes(item.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
                     >
+                      {selecting && <span className={`w-5 h-5 rounded border flex-shrink-0 flex items-center justify-center ${selectedIds.includes(item.id) ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-300 dark:border-gray-600'}`}>{selectedIds.includes(item.id) && '✓'}</span>}
                       <div className={`w-2 h-2 rounded-full flex-shrink-0 ${COND_DOT[item.condition] || 'bg-gray-300'}`} />
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium text-gray-900 dark:text-white truncate">{item.name}</div>
@@ -191,6 +212,8 @@ export default function Gear() {
           {bags.map((bag) => {
             const count   = bagItemCounts[bag.name] || 0;
             const bagItems = items.filter((i) => i.inBag === bag.name);
+            const totalWeight = bagWeight(bag.name, items);
+            const capacity = grams(bag.capacityGrams);
             return (
               <div key={bag.id} className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden shadow-sm">
                 <div className="flex items-center px-4 py-3.5">
@@ -201,6 +224,7 @@ export default function Gear() {
                     <span className="text-xl">{bag.emoji || '🎒'}</span>
                     <div>
                       <div className="font-semibold text-gray-900 dark:text-white text-sm">{bag.name}</div>
+                      {(totalWeight || capacity) > 0 && <div className={`text-xs mt-0.5 ${capacity && totalWeight > capacity ? 'text-red-600 dark:text-red-400 font-medium' : 'text-gray-500 dark:text-gray-400'}`}>{formatWeight(totalWeight)}{capacity ? ` / ${formatWeight(capacity)}` : ''}</div>}
                       <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{bag.owner} · {count} item{count !== 1 ? 's' : ''}</div>
                     </div>
                     <span className="ml-auto mr-2">
@@ -222,7 +246,7 @@ export default function Gear() {
                     {bagItems.map((item) => (
                       <button
                         key={item.id}
-                        onClick={() => setSelectedItem(item)}
+                        onClick={() => selecting ? toggleSelected(item.id) : setSelectedItem(item)}
                         className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 active:bg-gray-100 transition-colors"
                       >
                         <div className={`w-2 h-2 rounded-full flex-shrink-0 ${COND_DOT[item.condition] || 'bg-gray-300'}`} />
@@ -261,7 +285,7 @@ export default function Gear() {
                   {items.filter((i) => !i.inBag).map((item) => (
                     <button
                       key={item.id}
-                      onClick={() => setSelectedItem(item)}
+                      onClick={() => selecting ? toggleSelected(item.id) : setSelectedItem(item)}
                       className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
                     >
                       <div className={`w-2 h-2 rounded-full flex-shrink-0 ${COND_DOT[item.condition] || 'bg-gray-300'}`} />
@@ -292,6 +316,14 @@ export default function Gear() {
         <Plus size={24} />
       </button>
 
+      {selecting && (
+        <div className="fixed bottom-20 inset-x-4 z-20 bg-gray-900 dark:bg-gray-800 text-white rounded-2xl shadow-xl p-3 flex items-center gap-2">
+          <span className="text-sm flex-1">{selectedIds.length} selected</span>
+          <button disabled={!selectedIds.length} onClick={() => setBulkEditing(true)} className="px-3 py-2 rounded-lg bg-white/15 text-sm font-semibold disabled:opacity-40">Edit</button>
+          <button disabled={!selectedIds.length} onClick={() => setSavingProfile(true)} className="px-3 py-2 rounded-lg bg-blue-600 text-sm font-semibold disabled:opacity-40">Save profile</button>
+        </div>
+      )}
+
       {/* Modals */}
       {selectedItem && <ItemModal item={selectedItem} onClose={() => setSelectedItem(null)} />}
       {addingItem   && <ItemModal item={null}         onClose={() => setAddingItem(false)} />}
@@ -303,6 +335,10 @@ export default function Gear() {
         />
       )}
       {addingBag && <BagModal bag={null} itemCount={0} onClose={() => setAddingBag(false)} />}
+      {bulkEditing && <BulkEditSheet ids={selectedIds} onClose={() => { setBulkEditing(false); stopSelecting(); }} />}
+      {managingCategories && <CategoryManager onClose={() => setManagingCategories(false)} />}
+      {savingProfile && <ProfileSheet itemIds={selectedIds} onClose={() => { setSavingProfile(false); stopSelecting(); }} />}
+      {managingProfiles && <ProfileSheet onClose={() => setManagingProfiles(false)} />}
     </div>
   );
 }

@@ -16,13 +16,14 @@ import {
 } from '../src/lib/money.js';
 import { getPackState, cyclePack, stepPack, packFields, packTotals, itemQty } from '../src/lib/packing.js';
 import { parseDate, toDateInput, addMonths, replaceByDate, lastPurchase } from '../src/lib/dates.js';
-import { parseCSV, toCSV, itemsToCSV, parseImportFile, buildPlan } from '../src/lib/transfer.js';
+import { parseCSV, toCSV, itemsToCSV, buildBackup, parseImportFile, buildPlan } from '../src/lib/transfer.js';
 import { replaceState, replaceFields, getUrgency, replacementCost } from '../src/lib/replace.js';
 import {
   normalizeBagName, nameContains, findDuplicateBags, buildMergePlan, nameCollision,
   buildPackGroups, parentOptions, canHaveParent,
 } from '../src/lib/bags.js';
 import { canonicalCategory } from '../src/lib/categories.js';
+import { bagWeight, formatWeight } from '../src/lib/weights.js';
 
 // ── money: deal verdicts ──────────────────────────────────────────
 
@@ -603,4 +604,25 @@ test('an unchanged row produces no write', () => {
 test('a JSON backup from another app is refused', () => {
   assert.throws(() => parseImportFile('{"schema":"something-else","items":[]}', 'x.json'), /not exported from this app/);
   assert.throws(() => parseImportFile('{not json', 'x.json'), /not valid JSON/);
+});
+
+test('bag weight multiplies per-item weight by quantity and formats cleanly', () => {
+  const items = [
+    { inBag: 'Daypack', qty: 2, weightGrams: 125 },
+    { inBag: 'Daypack', qty: 1, weightGrams: 750 },
+    { inBag: 'Other', qty: 5, weightGrams: 100 },
+  ];
+  assert.equal(bagWeight('Daypack', items), 1000);
+  assert.equal(formatWeight(1000), '1 kg');
+  assert.equal(formatWeight(1250), '1.25 kg');
+});
+
+test('JSON backups retain categories and portable packing-profile item keys', () => {
+  const backup = buildBackup({
+    categories: [{ id: 'c1', name: 'Hygiene' }],
+    profiles: [{ id: 'p1', name: 'Weekend', itemIds: ['i1'], itemKeys: [{ name: 'Beanie', person: 'Mike' }] }],
+  });
+  const parsed = parseImportFile(JSON.stringify(backup), 'backup.json');
+  assert.equal(parsed.categories[0].name, 'Hygiene');
+  assert.deepEqual(parsed.profiles[0].itemKeys, [{ name: 'Beanie', person: 'Mike' }]);
 });

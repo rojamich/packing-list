@@ -20,6 +20,7 @@ export default function BagModal({ bag, itemCount = 0, onClose }) {
     emoji: bag?.emoji || '🎒',
     order: bag?.order ?? 99,
     parentBag: bag?.parentBag || '',
+    capacityGrams: bag?.capacityGrams ?? '',
   });
   const [saving,     setSaving]     = useState(false);
   const [deleteStep, setDeleteStep] = useState(null); // null | 'confirm'
@@ -54,7 +55,13 @@ export default function BagModal({ bag, itemCount = 0, onClose }) {
     setSaving(true);
     setError(null);
     try {
-      const data = { ...form, name: form.name.trim(), parentBag: form.parentBag || null };
+      const capacity = String(form.capacityGrams).trim();
+      const data = {
+        ...form,
+        name: form.name.trim(),
+        parentBag: form.parentBag || null,
+        capacityGrams: capacity === '' ? null : Math.max(0, Math.round(Number(capacity) || 0)),
+      };
       if (isNew) await addBag(data);
       else       await updateBag(bag.id, bag.name, data);
       confirmHaptic();
@@ -82,7 +89,7 @@ export default function BagModal({ bag, itemCount = 0, onClose }) {
   const dirty = useMemo(() => {
     const norm = (v) => (v === null || v === undefined ? '' : String(v));
     if (isNew) return !!form.name.trim();
-    return ['name', 'owner', 'emoji', 'order'].some((f) => norm(form[f]) !== norm(bag?.[f]));
+    return ['name', 'owner', 'emoji', 'order', 'parentBag', 'capacityGrams'].some((f) => norm(form[f]) !== norm(bag?.[f]));
   }, [isNew, form, bag]);
 
   return (
@@ -135,6 +142,19 @@ export default function BagModal({ bag, itemCount = 0, onClose }) {
                 </button>
               ))}
             </div>
+          </Field>
+
+          <Field label="Capacity (g)">
+            <input
+              type="number"
+              inputMode="decimal"
+              min="0"
+              value={form.capacityGrams}
+              onChange={(e) => setForm((f) => ({ ...f, capacityGrams: e.target.value }))}
+              placeholder="Optional"
+              className={input}
+            />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Use the bag's stated load capacity, if it has one.</p>
           </Field>
 
           {parents.length > 0 && (

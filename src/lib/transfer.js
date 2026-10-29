@@ -25,20 +25,20 @@ export const SCHEMA_VERSION = 1;
 const ITEM_FIELDS = [
   'name', 'category', 'person', 'qty', 'status', 'inBag', 'condition',
   'estLifeMonths', 'targetPrice', 'waitPrice', 'notes', 'sortOrder', 'packedQty', 'wornQty', 'worn',
-  'replaceQty',
+  'replaceQty', 'weightGrams',
 ];
 
-const BAG_FIELDS = ['name', 'owner', 'emoji', 'order', 'parentBag', 'packed'];
+const BAG_FIELDS = ['name', 'owner', 'emoji', 'order', 'parentBag', 'packed', 'capacityGrams'];
 
 // The CSV keeps only the most recent purchase — a spreadsheet can't hold a
 // nested history, and the last price is what people actually want to edit.
 export const ITEM_CSV_COLUMNS = [
   'id', 'name', 'category', 'person', 'qty', 'status', 'inBag', 'condition',
-  'estLifeMonths', 'replaceQty', 'targetPrice', 'waitPctOff', 'waitPrice', 'notes',
+  'estLifeMonths', 'replaceQty', 'weightGrams', 'targetPrice', 'waitPctOff', 'waitPrice', 'notes',
   'lastPaidUSD', 'lastPaidDate', 'lastPaidCurrency', 'lastPaidLocal', 'lastPaidWhere',
 ];
 
-export const BAG_CSV_COLUMNS = ['id', 'name', 'owner', 'emoji', 'order', 'parentBag'];
+export const BAG_CSV_COLUMNS = ['id', 'name', 'owner', 'emoji', 'order', 'parentBag', 'capacityGrams'];
 
 // ── Export ────────────────────────────────────────────────────────
 
@@ -56,17 +56,19 @@ function cleanBag(bag) {
   return out;
 }
 
-export function buildBackup({ items = [], bags = [], settings = {}, appVersion = 'unknown' }) {
+export function buildBackup({ items = [], bags = [], categories = [], profiles = [], settings = {}, appVersion = 'unknown' }) {
   return {
     schema: SCHEMA,
     schemaVersion: SCHEMA_VERSION,
     exportedAt: new Date().toISOString(),
     appVersion,
-    counts: { items: items.length, bags: bags.length },
+    counts: { items: items.length, bags: bags.length, categories: categories.length, profiles: profiles.length },
     // Rates are refetched automatically; only the real preference travels.
     settings: { activeCurrency: settings.activeCurrency || 'USD' },
     bags: bags.map(cleanBag),
     items: items.map(cleanItem),
+    categories: categories.map((category) => ({ id: category.id, name: category.name })),
+    profiles: profiles.map((profile) => ({ id: profile.id, name: profile.name, itemIds: profile.itemIds || [], itemKeys: profile.itemKeys || [] })),
   };
 }
 
@@ -84,6 +86,7 @@ export function itemsToCSV(items) {
       condition: item.condition ?? '',
       estLifeMonths: item.estLifeMonths ?? '',
       replaceQty: item.replaceQty ?? '',
+      weightGrams: item.weightGrams ?? '',
       targetPrice: item.targetPrice ?? '',
       // waitPrice is the stored value; the percentage is derived for readability
       // so the sheet shows both without two competing sources of truth.
@@ -103,7 +106,7 @@ export function itemsToCSV(items) {
 export function bagsToCSV(bags) {
   return toCSV(BAG_CSV_COLUMNS, bags.map((b) => ({
     id: b.id, name: b.name ?? '', owner: b.owner ?? '', emoji: b.emoji ?? '', order: b.order ?? '',
-    parentBag: b.parentBag ?? '',
+    parentBag: b.parentBag ?? '', capacityGrams: b.capacityGrams ?? '',
   })));
 }
 
@@ -230,6 +233,8 @@ export function parseImportFile(text, filename = '') {
       kind: 'json',
       items: (json.items || []).map(normalizeJsonItem),
       bags: (json.bags || []).map(normalizeJsonBag),
+      categories: (json.categories || []).map(normalizeJsonCategory).filter((category) => category.name),
+      profiles: (json.profiles || []).map(normalizeJsonProfile).filter((profile) => profile.name),
       settings: json.settings || null,
       warnings,
     };
@@ -243,7 +248,7 @@ export function parseImportFile(text, filename = '') {
   const hasBagCols  = header.includes('name') && header.includes('owner') && !header.includes('category');
 
   if (hasBagCols) {
-    return { kind: 'bags-csv', items: [], bags: rows.map(normalizeCsvBag), settings: null, warnings };
+    return { kind: 'bags-csv', items: [], bags: rows.map(normalizeCsvBag), categories: [], profiles: [], settings: null, warnings };
   }
   if (hasItemCols) {
     const missing = ['name'].filter((c) => !header.includes(c));
@@ -256,6 +261,7 @@ export function parseImportFile(text, filename = '') {
       kind: 'items-csv',
       items: rows.map((r) => normalizeCsvItem(r, header)),
       bags: [],
+      categories: [], profiles: [],
       settings: null,
       providedColumns: provided,
       warnings,
@@ -281,6 +287,7 @@ function normalizeJsonItem(raw) {
     condition: pick(raw.condition, VALID_CONDITION, 'good'),
     estLifeMonths: int(raw.estLifeMonths, 24) || 24,
     replaceQty: int(raw.replaceQty, 0),
+    weightGrams: num(raw.weightGrams, null),
     targetPrice: num(raw.targetPrice, null),
     waitPrice: num(raw.waitPrice, null),
     notes: String(raw.notes ?? ''),
@@ -301,6 +308,20 @@ function normalizeJsonBag(raw) {
     order: num(raw.order, 99),
     parentBag: raw.parentBag ? String(raw.parentBag).trim() : null,
     packed: bool(raw.packed),
+    capacityGrams: num(raw.capacityGrams, null),
+  };
+}
+
+function normalizeJsonCategory(raw) {
+  return { id: raw.id || null, name: String(raw.name || '').trim() };
+}
+
+function normalizeJsonProfile(raw) {
+  return {
+    id: raw.id || null,
+    name: String(raw.name || '').trim(),
+    itemIds: Array.isArray(raw.itemIds) ? raw.itemIds.filter(Boolean).slice(0, 500) : [],
+    itemKeys: Array.isArray(raw.itemKeys) ? raw.itemKeys.filter((item) => item?.name).slice(0, 500).map((item) => ({ name: String(item.name), person: String(item.person || 'Both') })) : [],
   };
 }
 
@@ -330,6 +351,7 @@ function normalizeCsvItem(row, present = []) {
   if (has('condition'))     set('condition', pick(row.condition, VALID_CONDITION, 'good'));
   if (has('estLifeMonths')) set('estLifeMonths', int(row.estLifeMonths, 24) || 24);
   if (has('replaceQty'))    set('replaceQty', int(row.replaceQty, 0));
+  if (has('weightGrams'))   set('weightGrams', num(row.weightGrams, null));
   if (has('targetPrice'))   set('targetPrice', num(row.targetPrice, null));
   if (has('notes'))         set('notes', String(row.notes ?? ''));
 
@@ -380,6 +402,7 @@ function normalizeCsvBag(row) {
     emoji: row.emoji?.trim() || '🎒',
     order: num(row.order, 99),
     parentBag: row.parentBag?.trim() || null,
+    capacityGrams: num(row.capacityGrams, null),
   };
 }
 
@@ -388,7 +411,7 @@ function normalizeCsvBag(row) {
 const key = (name, person) => `${String(name).trim().toLowerCase()}|${String(person || '').toLowerCase()}`;
 
 /** Fields compared when deciding whether a row actually changed. */
-const COMPARED = ['name', 'category', 'person', 'qty', 'status', 'inBag', 'condition', 'estLifeMonths', 'replaceQty', 'targetPrice', 'waitPrice', 'notes'];
+const COMPARED = ['name', 'category', 'person', 'qty', 'status', 'inBag', 'condition', 'estLifeMonths', 'replaceQty', 'weightGrams', 'targetPrice', 'waitPrice', 'notes'];
 
 function diffFields(before, after, fields) {
   const changes = [];
@@ -547,7 +570,9 @@ export function buildPlan({ incoming, existingItems = [], existingBags = [], mod
     skipped,
     warnings,
     settings: incoming.settings || null,
-    totalWrites: itemCreates.length + itemUpdates.length + itemDeletes.length + bagCreates.length + bagUpdates.length,
+    categoryRestores: mode === 'update' ? [] : (incoming.categories || []),
+    profileRestores: mode === 'update' ? [] : (incoming.profiles || []),
+    totalWrites: itemCreates.length + itemUpdates.length + itemDeletes.length + bagCreates.length + bagUpdates.length + (mode === 'update' ? 0 : (incoming.categories || []).length + (incoming.profiles || []).length),
   };
 }
 

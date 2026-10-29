@@ -40,6 +40,19 @@ export async function updateItem(id, data) {
   await updateDoc(doc(db, 'items', id), { ...rest, updatedAt: serverTimestamp() });
 }
 
+/** Apply the same safe field changes to a deliberate multi-selection. */
+export async function bulkUpdateItems(ids = [], changes = {}) {
+  const targets = [...new Set(ids)].filter(Boolean);
+  const allowed = ['category', 'person', 'status', 'inBag'];
+  const data = Object.fromEntries(
+    Object.entries(changes).filter(([key, value]) => allowed.includes(key) && value !== undefined),
+  );
+  if (!targets.length || Object.keys(data).length === 0) return;
+  await commitInChunks(targets, (batch, id) => {
+    batch.update(doc(db, 'items', id), { ...data, updatedAt: serverTimestamp() });
+  });
+}
+
 export async function deleteItem(id) {
   await deleteDoc(doc(db, 'items', id));
 }
@@ -134,22 +147,27 @@ export async function addBag(data) {
   });
 }
 
-/** Items reference bags by name, so a rename has to rewrite every member item. */
+/** Keep every name-based reference intact when a bag is renamed. */
 export async function updateBag(id, oldName, newData) {
   await updateDoc(doc(db, 'bags', id), { ...newData, updatedAt: serverTimestamp() });
   if (oldName && oldName !== newData.name) {
-    const snap = await getDocs(query(collection(db, 'items'), where('inBag', '==', oldName)));
-    if (!snap.empty) {
-      await commitInChunks(snap.docs, (batch, d) => batch.update(d.ref, { inBag: newData.name }));
-    }
+    const [itemSnap, childSnap] = await Promise.all([
+      getDocs(query(collection(db, 'items'), where('inBag', '==', oldName))),
+      getDocs(query(collection(db, 'bags'), where('parentBag', '==', oldName))),
+    ]);
+    if (!itemSnap.empty) await commitInChunks(itemSnap.docs, (batch, d) => batch.update(d.ref, { inBag: newData.name }));
+    if (!childSnap.empty) await commitInChunks(childSnap.docs, (batch, d) => batch.update(d.ref, { parentBag: newData.name }));
   }
 }
 
 export async function deleteBag(id, name, reassignTo = null) {
-  const snap = await getDocs(query(collection(db, 'items'), where('inBag', '==', name)));
-  if (!snap.empty) {
-    await commitInChunks(snap.docs, (batch, d) => batch.update(d.ref, { inBag: reassignTo }));
-  }
+  const [itemSnap, childSnap] = await Promise.all([
+    getDocs(query(collection(db, 'items'), where('inBag', '==', name))),
+    getDocs(query(collection(db, 'bags'), where('parentBag', '==', name))),
+  ]);
+  if (!itemSnap.empty) await commitInChunks(itemSnap.docs, (batch, d) => batch.update(d.ref, { inBag: reassignTo }));
+  // A parent can only be top-level, so its children become independent bags.
+  if (!childSnap.empty) await commitInChunks(childSnap.docs, (batch, d) => batch.update(d.ref, { parentBag: null }));
   await deleteDoc(doc(db, 'bags', id));
 }
 
@@ -167,17 +185,58 @@ export async function mergeBags(keeperName, losers = []) {
 
   let moved = 0;
   for (const loser of targets) {
-    const snap = await getDocs(query(collection(db, 'items'), where('inBag', '==', loser.name)));
-    if (!snap.empty) {
-      await commitInChunks(snap.docs, (batch, d) => batch.update(d.ref, { inBag: keeperName }));
-      moved += snap.size;
+    const [itemSnap, childSnap] = await Promise.all([
+      getDocs(query(collection(db, 'items'), where('inBag', '==', loser.name))),
+      getDocs(query(collection(db, 'bags'), where('parentBag', '==', loser.name))),
+    ]);
+    if (!itemSnap.empty) {
+      await commitInChunks(itemSnap.docs, (batch, d) => batch.update(d.ref, { inBag: keeperName }));
+      moved += itemSnap.size;
     }
+    if (!childSnap.empty) await commitInChunks(childSnap.docs, (batch, d) => batch.update(d.ref, { parentBag: keeperName }));
   }
 
   const removable = targets.filter((b) => b.id);
   await commitInChunks(removable, (batch, b) => batch.delete(doc(db, 'bags', b.id)));
 
   return { moved, removed: removable.length };
+}
+
+// ── Categories ───────────────────────────────────────────────────
+
+export async function addCategory(name) {
+  return addDoc(collection(db, 'categories'), { name: name.trim(), createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+}
+
+export async function updateCategory(id, oldName, name) {
+  const nextName = name.trim();
+  if (!nextName) return;
+  const snap = await getDocs(query(collection(db, 'items'), where('category', '==', oldName)));
+  if (!snap.empty) await commitInChunks(snap.docs, (batch, d) => batch.update(d.ref, { category: nextName, updatedAt: serverTimestamp() }));
+  if (id) await updateDoc(doc(db, 'categories', id), { name: nextName, updatedAt: serverTimestamp() });
+  else await addCategory(nextName);
+}
+
+export async function deleteCategory(id, name, replacement = 'Other') {
+  const snap = await getDocs(query(collection(db, 'items'), where('category', '==', name)));
+  if (!snap.empty) await commitInChunks(snap.docs, (batch, d) => batch.update(d.ref, { category: replacement, updatedAt: serverTimestamp() }));
+  if (id) await deleteDoc(doc(db, 'categories', id));
+}
+
+// ── Packing profiles ─────────────────────────────────────────────
+
+export async function addProfile({ name, itemIds, itemKeys = [] }) {
+  return addDoc(collection(db, 'profiles'), {
+    name: name.trim(),
+    itemIds: [...new Set(itemIds || [])],
+    itemKeys: itemKeys.filter((key) => key?.name).slice(0, 500),
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function deleteProfile(id) {
+  await deleteDoc(doc(db, 'profiles', id));
 }
 
 /** A sub-bag is ticked as one unit inside its parent. */
@@ -265,6 +324,8 @@ export async function applyImportPlan(plan) {
   plan.itemCreates.forEach((item) => ops.push({ kind: 'item-create', item }));
   plan.itemUpdates.forEach((u) => ops.push({ kind: 'item-update', id: u.id, item: u.after, addPurchase: u.addPurchase, before: u.before }));
   plan.itemDeletes.forEach((item) => ops.push({ kind: 'item-delete', id: item.id }));
+  (plan.categoryRestores || []).forEach((category) => ops.push({ kind: 'category-upsert', category }));
+  (plan.profileRestores || []).forEach((profile) => ops.push({ kind: 'profile-upsert', profile }));
 
   await commitInChunks(ops, (batch, op, i) => {
     switch (op.kind) {
@@ -272,6 +333,7 @@ export async function applyImportPlan(plan) {
         batch.set(doc(collection(db, 'bags')), {
           name: op.bag.name, owner: op.bag.owner, emoji: op.bag.emoji, order: op.bag.order,
           parentBag: op.bag.parentBag ?? null,
+          capacityGrams: op.bag.capacityGrams ?? null,
           createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
         });
         break;
@@ -280,6 +342,7 @@ export async function applyImportPlan(plan) {
         batch.update(doc(db, 'bags', op.id), {
           name: op.bag.name, owner: op.bag.owner, emoji: op.bag.emoji, order: op.bag.order,
           parentBag: op.bag.parentBag ?? null,
+          capacityGrams: op.bag.capacityGrams ?? null,
           updatedAt: serverTimestamp(),
         });
         break;
@@ -319,6 +382,23 @@ export async function applyImportPlan(plan) {
       case 'item-delete':
         batch.delete(doc(db, 'items', op.id));
         break;
+
+      case 'category-upsert': {
+        const ref = op.category.id ? doc(db, 'categories', op.category.id) : doc(collection(db, 'categories'));
+        batch.set(ref, { name: op.category.name, updatedAt: serverTimestamp() }, { merge: true });
+        break;
+      }
+
+      case 'profile-upsert': {
+        const ref = op.profile.id ? doc(db, 'profiles', op.profile.id) : doc(collection(db, 'profiles'));
+        batch.set(ref, {
+          name: op.profile.name,
+          itemIds: op.profile.itemIds || [],
+          itemKeys: op.profile.itemKeys || [],
+          updatedAt: serverTimestamp(),
+        }, { merge: true });
+        break;
+      }
     }
   });
 
@@ -347,6 +427,7 @@ function itemPayload(item, qty, fields = null) {
     targetPrice: item.targetPrice ?? null,
     waitPrice: item.waitPrice ?? null,
     notes: item.notes ?? '',
+    weightGrams: item.weightGrams ?? null,
   };
   if (!fields) return full;
 

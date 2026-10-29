@@ -21,6 +21,8 @@ export function DataProvider({ children }) {
   const [items, setItems]       = useState([]);
   const [bags, setBags]         = useState([]);
   const [settings, setSettings] = useState(null);
+  const [categories, setCategories] = useState([]);
+  const [profiles, setProfiles] = useState([]);
 
   const [itemsLoading, setItemsLoading]       = useState(true);
   const [bagsLoading, setBagsLoading]         = useState(true);
@@ -29,7 +31,7 @@ export function DataProvider({ children }) {
   // Errors are tracked per listener and cleared when that listener recovers.
   // Previously one shared `error` was set and never unset, so a single blip on
   // any collection blanked the whole app until a manual reload.
-  const [errors, setErrors] = useState({ items: null, bags: null, settings: null });
+  const [errors, setErrors] = useState({ items: null, bags: null, settings: null, categories: null, profiles: null });
   const legacyCategoryMigrationInFlight = useRef(false);
 
   const failed  = useCallback((src) => (e) => setErrors((p) => ({ ...p, [src]: e })), []);
@@ -85,7 +87,18 @@ export function DataProvider({ children }) {
       (e) => { failed('settings')(e); setSettingsLoading(false); },
     );
 
-    return () => { unsubItems(); unsubBags(); unsubSettings(); };
+    const unsubCategories = onSnapshot(
+      collection(db, 'categories'),
+      (snap) => { setCategories(snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => String(a.name).localeCompare(String(b.name)))); healthy('categories'); },
+      failed('categories'),
+    );
+    const unsubProfiles = onSnapshot(
+      collection(db, 'profiles'),
+      (snap) => { setProfiles(snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => String(a.name).localeCompare(String(b.name)))); healthy('profiles'); },
+      failed('profiles'),
+    );
+
+    return () => { unsubItems(); unsubBags(); unsubSettings(); unsubCategories(); unsubProfiles(); };
   }, [failed, healthy]);
 
   // A rules rejection means there is genuinely nothing to show — that one still
@@ -138,6 +151,8 @@ export function DataProvider({ children }) {
   const value = useMemo(() => ({
     items,
     bags,
+    categories,
+    profiles,
     settings: settings || {},
     loading: itemsLoading || bagsLoading,
     settingsLoading,
@@ -150,7 +165,7 @@ export function DataProvider({ children }) {
     refreshRates,
     activeCurrency,
     setActiveCurrency,
-  }), [items, bags, settings, itemsLoading, bagsLoading, settingsLoading, error,
+  }), [items, bags, categories, profiles, settings, itemsLoading, bagsLoading, settingsLoading, error,
        errors, accessDenied, rates, ratesAreLive, refreshRates, activeCurrency,
        setActiveCurrency]);
 

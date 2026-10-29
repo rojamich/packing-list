@@ -6,33 +6,25 @@ import { useData } from '../context/DataContext';
 import { addItem, updateItem, deleteItem, logPurchase, removePurchase, setPurchases } from '../data/store';
 import { itemQty } from '../lib/packing';
 import { DEFAULT_LIFE_MONTHS } from '../lib/dates';
-import { canonicalCategory } from '../lib/categories';
+import { canonicalCategory, DEFAULT_CATEGORIES, categoryNames } from '../lib/categories';
 import ItemPricing from './ItemPricing';
 
 // The fields this form actually writes. Used to spot a concurrent edit without
 // tripping over `updatedAt`, which our own purchase writes bump too.
 const EDITABLE = [
   'name', 'category', 'person', 'qty', 'status', 'inBag',
-  'condition', 'estLifeMonths', 'targetPrice', 'waitPrice', 'notes', 'replaceQty',
+  'condition', 'estLifeMonths', 'targetPrice', 'waitPrice', 'notes', 'replaceQty', 'weightGrams',
 ];
 
 const pickEditable = (it) =>
   Object.fromEntries(EDITABLE.map((f) => [f, it?.[f] ?? null]));
-
-const DEFAULT_CATEGORIES = [
-  'Clothing – Mike',
-  'Clothing – Jen',
-  'Electronics',
-  'Hygiene',
-  'Health & Medical',
-];
 
 /** The drag gesture already uses this; a save deserves the same acknowledgement. */
 const confirmHaptic = () => navigator.vibrate?.(12);
 
 export default function ItemModal({ item, onClose }) {
   const isNew = !item?.id;
-  const { items, bags } = useData();
+  const { items, bags, categories: savedCategories } = useData();
 
   // The pages hold the tapped row in state, so `item` is a snapshot frozen at
   // tap time — it never sees later Firestore updates. Anything that reads or
@@ -45,11 +37,7 @@ export default function ItemModal({ item, onClose }) {
 
   // Categories come from what's actually in the list, so a new one sticks
   // without needing a code change.
-  const categories = useMemo(() => {
-    const set = new Set(DEFAULT_CATEGORIES);
-    items.forEach((i) => { if (i.category) set.add(canonicalCategory(i.category)); });
-    return [...set].sort((a, b) => a.localeCompare(b));
-  }, [items]);
+  const categories = useMemo(() => categoryNames(savedCategories, items), [savedCategories, items]);
 
   const [form, setForm] = useState(() => ({
     name: '',
@@ -64,6 +52,7 @@ export default function ItemModal({ item, onClose }) {
     ...(item ? { ...item, category: canonicalCategory(item.category) } : {}),
     targetPrice: item?.targetPrice ?? '',
     waitPrice: item?.waitPrice ?? '',
+    weightGrams: item?.weightGrams ?? '',
     replaceQty: replaceState(item || {}).replaceQty,
   }));
 
@@ -124,6 +113,7 @@ export default function ItemModal({ item, onClose }) {
   function buildData() {
     const target = String(form.targetPrice).trim();
     const wait = String(form.waitPrice).trim();
+    const weight = String(form.weightGrams).trim();
     return {
       name: form.name.trim(),
       category: form.category?.trim() || 'Other',
@@ -137,6 +127,7 @@ export default function ItemModal({ item, onClose }) {
       notes: form.notes || '',
       targetPrice: target === '' ? null : Number(target),
       waitPrice: wait === '' ? null : Number(wait),
+      weightGrams: weight === '' ? null : Math.max(0, Math.round(Number(weight) || 0)),
     };
   }
 
@@ -268,6 +259,18 @@ export default function ItemModal({ item, onClose }) {
               <input type="number" inputMode="numeric" min="1" value={form.estLifeMonths} onChange={set('estLifeMonths')} className={input} />
             </Field>
           </div>
+
+          <Field label="Weight (g, per item)">
+            <input
+              type="number"
+              inputMode="decimal"
+              min="0"
+              value={form.weightGrams}
+              onChange={set('weightGrams')}
+              placeholder="Optional"
+              className={input}
+            />
+          </Field>
 
           <Field label="Status">
             <div className="grid grid-cols-3 gap-2">

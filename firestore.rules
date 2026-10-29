@@ -67,6 +67,7 @@ service cloud.firestore {
           && (!('waitPrice'     in d) || optNum(d.waitPrice))
           && (!('sortOrder'     in d) || optNum(d.sortOrder))
           && (!('cost'          in d) || optNum(d.cost))
+          && (!('weightGrams'   in d) || optNum(d.weightGrams))
           && (!('worn'          in d) || optBool(d.worn))
           && (!('packed'        in d) || optBool(d.packed))
           && (!('purchases'     in d) || optList(d.purchases, 500));
@@ -79,7 +80,20 @@ service cloud.firestore {
           && (!('emoji' in d) || optStr(d.emoji, 16))
           && (!('order' in d) || optNum(d.order))
           && (!('parentBag' in d) || optStr(d.parentBag, 120))
-          && (!('packed' in d) || optBool(d.packed));
+          && (!('packed' in d) || optBool(d.packed))
+          && (!('capacityGrams' in d) || optNum(d.capacityGrams));
+    }
+
+    function validCategory(d) {
+      return d.name is string && d.name.size() > 0 && d.name.size() <= 120
+          && d.keys().size() <= 10;
+    }
+
+    function validProfile(d) {
+      return d.name is string && d.name.size() > 0 && d.name.size() <= 120
+          && d.keys().size() <= 12
+          && (!('itemIds' in d) || optList(d.itemIds, 500))
+          && (!('itemKeys' in d) || optList(d.itemKeys, 500));
     }
 
     // settings/app holds shared exchange rates and a currency preference, and
@@ -113,6 +127,18 @@ service cloud.firestore {
     match /settings/{docId} {
       allow read:          if allowed();
       allow create, update: if allowed() && validSettings(request.resource.data);
+      allow delete:        if allowed();
+    }
+
+    match /categories/{categoryId} {
+      allow read:          if allowed();
+      allow create, update: if allowed() && validCategory(request.resource.data);
+      allow delete:        if allowed();
+    }
+
+    match /profiles/{profileId} {
+      allow read:          if allowed();
+      allow create, update: if allowed() && validProfile(request.resource.data);
       allow delete:        if allowed();
     }
 
