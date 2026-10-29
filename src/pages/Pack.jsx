@@ -45,7 +45,10 @@ export default function Pack() {
 
   const bagOrder = useMemo(() => bags.map((b) => b.name), [bags]);
 
-  const groups = useMemo(() => buildPackGroups(bags, filtered, packTotals), [bags, filtered]);
+  const groups = useMemo(
+    () => buildPackGroups(bags, filtered, packTotals, { includeEmptySubBags: !filtering }),
+    [bags, filtered, filtering],
+  );
 
   // Progress counts units, not rows — 1 of 2 shorts is half packed, not
   // unpacked — and a sub-bag is a single unit in its parent, matching what each

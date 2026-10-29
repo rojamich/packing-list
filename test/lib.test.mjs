@@ -22,6 +22,7 @@ import {
   normalizeBagName, nameContains, findDuplicateBags, buildMergePlan, nameCollision,
   buildPackGroups, parentOptions, canHaveParent,
 } from '../src/lib/bags.js';
+import { canonicalCategory } from '../src/lib/categories.js';
 
 // ── money: deal verdicts ──────────────────────────────────────────
 
@@ -444,6 +445,22 @@ test('a sub-bag keeps its own contents and its own progress', () => {
   assert.equal(toiletries.totals.total, 2);
   assert.equal(toiletries.totals.done, 1);
   assert.equal(toiletries.packed, true, 'ticked as a unit in the parent');
+});
+
+test('a bag filter does not show unrelated nested bags', () => {
+  const groups = buildPackGroups(
+    NESTED_BAGS,
+    [NESTED_ITEMS[0]],
+    packTotals,
+    { includeEmptySubBags: false },
+  );
+  assert.deepEqual(groups.map((g) => g.name), ['Mike (Farpoint 40)']);
+  assert.deepEqual(groups[0].subBags, []);
+});
+
+test('legacy shared hygiene labels display under Hygiene', () => {
+  assert.equal(canonicalCategory('Toiletries – Shared Bag'), 'Hygiene');
+  assert.equal(canonicalCategory('Shared Hygiene Bag'), 'Hygiene');
 });
 
 test('unassigned items still get a group, and it comes last', () => {

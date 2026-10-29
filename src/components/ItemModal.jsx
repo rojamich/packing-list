@@ -6,6 +6,7 @@ import { useData } from '../context/DataContext';
 import { addItem, updateItem, deleteItem, logPurchase, removePurchase, setPurchases } from '../data/store';
 import { itemQty } from '../lib/packing';
 import { DEFAULT_LIFE_MONTHS } from '../lib/dates';
+import { canonicalCategory } from '../lib/categories';
 import ItemPricing from './ItemPricing';
 
 // The fields this form actually writes. Used to spot a concurrent edit without
@@ -22,7 +23,7 @@ const DEFAULT_CATEGORIES = [
   'Clothing – Mike',
   'Clothing – Jen',
   'Electronics',
-  'Toiletries – Shared Bag',
+  'Hygiene',
   'Health & Medical',
 ];
 
@@ -46,7 +47,7 @@ export default function ItemModal({ item, onClose }) {
   // without needing a code change.
   const categories = useMemo(() => {
     const set = new Set(DEFAULT_CATEGORIES);
-    items.forEach((i) => { if (i.category) set.add(i.category); });
+    items.forEach((i) => { if (i.category) set.add(canonicalCategory(i.category)); });
     return [...set].sort((a, b) => a.localeCompare(b));
   }, [items]);
 
@@ -60,7 +61,7 @@ export default function ItemModal({ item, onClose }) {
     condition: 'good',
     estLifeMonths: DEFAULT_LIFE_MONTHS,
     notes: '',
-    ...(item || {}),
+    ...(item ? { ...item, category: canonicalCategory(item.category) } : {}),
     targetPrice: item?.targetPrice ?? '',
     waitPrice: item?.waitPrice ?? '',
     replaceQty: replaceState(item || {}).replaceQty,

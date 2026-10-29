@@ -197,10 +197,11 @@ export function subBagUnits(subBags = []) {
  * the whole toiletries bag once — while the items inside it are tracked on the
  * sub-bag itself and shown when you expand it.
  *
- * `itemsFor` is passed in so the caller can hand over a filtered list without
- * this having to know about search or person filters.
+ * `items` can be filtered by the caller. In that case, empty child bags are
+ * omitted too, so selecting one bag cannot leak unrelated nested bags into the
+ * result.
  */
-export function buildPackGroups(bags = [], items = [], packTotals) {
+export function buildPackGroups(bags = [], items = [], packTotals, { includeEmptySubBags = true } = {}) {
   const byBagName = new Map();
   items.forEach((item) => {
     const key = item.inBag || UNASSIGNED;
@@ -224,15 +225,17 @@ export function buildPackGroups(bags = [], items = [], packTotals) {
 
   const makeGroup = (bag, name) => {
     const ownItems = byBagName.get(name) || [];
-    const subBags = (childrenOf.get(name) || []).map((sub) => ({
-      bag: sub,
-      items: byBagName.get(sub.name) || [],
-      totals: packTotals(byBagName.get(sub.name) || []),
-      packed: sub.packed === true,
-    }));
+    const subBags = (childrenOf.get(name) || [])
+      .map((sub) => ({
+        bag: sub,
+        items: byBagName.get(sub.name) || [],
+        totals: packTotals(byBagName.get(sub.name) || []),
+        packed: sub.packed === true,
+      }))
+      .filter((sub) => includeEmptySubBags || sub.items.length > 0);
 
     const itemTotals = packTotals(ownItems);
-    const subUnits = subBagUnits(childrenOf.get(name) || []);
+    const subUnits = subBagUnits(subBags);
 
     return {
       name,

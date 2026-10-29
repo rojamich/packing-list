@@ -9,6 +9,7 @@ import { db } from '../firebase';
 import { SEED_ITEMS, SEED_BAGS } from './seedData';
 import { packFields, itemQty, getPackState } from '../lib/packing';
 import { toDateInput } from '../lib/dates';
+import { HYGIENE_CATEGORY, LEGACY_HYGIENE_CATEGORIES } from '../lib/categories';
 
 export const SETTINGS_DOC = doc(db, 'settings', 'app');
 
@@ -66,6 +67,18 @@ export async function reorderItems(orderedIds, base = 0) {
   if (!orderedIds?.length) return;
   await commitInChunks(orderedIds, (batch, id, i) => {
     batch.update(doc(db, 'items', id), { sortOrder: base + (i + 1) * ORDER_STEP });
+  });
+}
+
+/** Update the old shared-hygiene labels once the list has loaded. */
+export async function migrateLegacyHygieneCategories(items = []) {
+  const legacyItems = items.filter((item) => LEGACY_HYGIENE_CATEGORIES.has(item.category));
+  if (legacyItems.length === 0) return;
+  await commitInChunks(legacyItems, (batch, item) => {
+    batch.update(doc(db, 'items', item.id), {
+      category: HYGIENE_CATEGORY,
+      updatedAt: serverTimestamp(),
+    });
   });
 }
 

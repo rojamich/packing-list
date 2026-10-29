@@ -38,6 +38,8 @@ export default function useLongPressReorder(ids, onCommit, enabled = true) {
   const rects     = useRef([]);     // measured at pick-up, in document coords
   const baseIds   = useRef([]);
   const orderRef  = useRef(null);
+  const dragIdRef = useRef(null);
+  const pointerId = useRef(null);
   const pointerY  = useRef(0);
   const rafId     = useRef(null);
   const swallowClick = useRef(false);   // the click that follows a drop
@@ -65,6 +67,8 @@ export default function useLongPressReorder(ids, onCommit, enabled = true) {
     const finalOrder = orderRef.current;
     const changed = finalOrder && finalOrder.some((id, i) => id !== baseIds.current[i]);
     setDragId(null);
+    dragIdRef.current = null;
+    pointerId.current = null;
     setOrder(null);
     orderRef.current = null;
     if (commit && changed) onCommit(finalOrder);
@@ -135,7 +139,11 @@ export default function useLongPressReorder(ids, onCommit, enabled = true) {
 
         start.current = { id, x: e.clientX, y: e.clientY };
         pointerY.current = e.clientY + window.scrollY;
-        const target = e.currentTarget;
+        const row = e.currentTarget;
+        pointerId.current = e.pointerId;
+        // Capturing the pointer on the row keeps the gesture alive even when
+        // the hold started on its nested button or text.
+        try { row.setPointerCapture(e.pointerId); } catch { /* not fatal */ }
 
         holdTimer.current = setTimeout(() => {
           holdTimer.current = null;
@@ -153,9 +161,9 @@ export default function useLongPressReorder(ids, onCommit, enabled = true) {
           baseIds.current = measured.map((m) => m.id);
           orderRef.current = [...baseIds.current];
 
-          try { target.setPointerCapture(e.pointerId); } catch { /* not fatal */ }
           navigator.vibrate?.(15);
           setOrder(orderRef.current);
+          dragIdRef.current = id;
           setDragId(id);
         }, HOLD_MS);
       },
@@ -166,27 +174,27 @@ export default function useLongPressReorder(ids, onCommit, enabled = true) {
           if (moved > MOVE_TOLERANCE) cancelHold();
           return;
         }
-        if (!dragId) return;
+        if (!dragIdRef.current) return;
         pointerY.current = e.clientY + window.scrollY;
         updateSlot();
       },
 
-      onPointerUp: () => {
+      onPointerUp: (e) => {
         if (holdTimer.current) { cancelHold(); return; }   // plain tap — let onClick run
-        if (dragId) endDrag(true);
+        if (dragIdRef.current && e.pointerId === pointerId.current) endDrag(true);
       },
 
-      onPointerCancel: () => {
+      onPointerCancel: (e) => {
         if (holdTimer.current) { cancelHold(); return; }
-        if (dragId) endDrag(false);
+        if (dragIdRef.current && e.pointerId === pointerId.current) endDrag(false);
       },
 
       // A tap that turned into a drag must not also toggle the item.
       onClickCapture: (e) => {
-        if (swallowClick.current || dragId) { e.preventDefault(); e.stopPropagation(); }
+        if (swallowClick.current || dragIdRef.current) { e.preventDefault(); e.stopPropagation(); }
       },
 
-      onContextMenu: (e) => { if (dragId) e.preventDefault(); },
+      onContextMenu: (e) => { if (dragIdRef.current) e.preventDefault(); },
     };
   }, [ids, dragId, enabled, setRowRef, cancelHold, endDrag, updateSlot]);
 

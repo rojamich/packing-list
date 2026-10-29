@@ -4,6 +4,7 @@ import { useData } from '../context/DataContext';
 import { formatUSD, waitPctOff } from '../lib/money';
 import { lastPurchase } from '../lib/dates';
 import { replaceState } from '../lib/replace';
+import { canonicalCategory } from '../lib/categories';
 import ItemModal from '../components/ItemModal';
 import BagModal  from '../components/BagModal';
 
@@ -44,7 +45,7 @@ export default function Gear() {
     });
     const groups = {};
     filtered.forEach((item) => {
-      const cat = item.category || 'Other';
+      const cat = canonicalCategory(item.category) || 'Other';
       (groups[cat] ||= []).push(item);
     });
     // Gear is a reference list, so alphabetical beats packing order here.

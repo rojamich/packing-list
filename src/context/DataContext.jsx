@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { collection, onSnapshot, doc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { updateSettings } from '../data/store';
+import { migrateLegacyHygieneCategories, updateSettings } from '../data/store';
 import { fetchRates, FALLBACK_RATES, RATES_MAX_AGE_MS, BASE_CURRENCY } from '../lib/money';
 
 // One subscription per collection for the whole app. Previously every page and
@@ -30,6 +30,7 @@ export function DataProvider({ children }) {
   // Previously one shared `error` was set and never unset, so a single blip on
   // any collection blanked the whole app until a manual reload.
   const [errors, setErrors] = useState({ items: null, bags: null, settings: null });
+  const legacyCategoryMigrationInFlight = useRef(false);
 
   const failed  = useCallback((src) => (e) => setErrors((p) => ({ ...p, [src]: e })), []);
   // Only touch state when there is something to clear, so a healthy snapshot
@@ -40,7 +41,21 @@ export function DataProvider({ children }) {
     const unsubItems = onSnapshot(
       collection(db, 'items'),
       (snap) => {
-        setItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort(byOrderThenName));
+        const nextItems = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort(byOrderThenName);
+        setItems(nextItems);
+        if (!legacyCategoryMigrationInFlight.current) {
+          legacyCategoryMigrationInFlight.current = true;
+          migrateLegacyHygieneCategories(nextItems)
+            .catch(() => {
+              // The legacy label still renders as “Hygiene”; a later snapshot
+              // or the next launch can retry when the connection recovers.
+            })
+            .finally(() => {
+              // A cached first snapshot can be empty. Checking the next
+              // snapshot lets the migration run once server data arrives.
+              legacyCategoryMigrationInFlight.current = false;
+            });
+        }
         setItemsLoading(false);
         healthy('items');
       },
